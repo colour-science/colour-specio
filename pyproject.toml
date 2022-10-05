@@ -10,12 +10,14 @@ colour-science = "^0.4.1"
 numpy = "^1.23.1"
 pyserial = "^3.5"
 aenum = "^3.1.11"
+colour = { path = "../colour", develop = true }
 
 [tool.poetry.dev-dependencies]
 matplotlib = "^3.5.2"
 pytest = "^5.2"
 black = "^22.6.0"
 ipykernel = "^6.15.1"
+isort = "^5.10.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

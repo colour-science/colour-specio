@@ -1,1 +1,34 @@
-__version__ = '0.1.0'
+"""
+Specio
+======
+Provides support for interacting with various hardware spectrometers.
+"""
+__version__ = "0.1.0"
+
+import logging
+
+from specio.Common import Measurement, RawMeasurement
+from specio.Spectrometer import SpecRadiometer
+
+__author__ = "Tucker Downs"
+__copyright__ = "Copyright 2022 Specio Developers"
+__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+__maintainer__ = "Tucker Downs"
+__email__ = "tucker@tuckerd.info"
+__status__ = "Development"
+
+
+def config__specio_logger() -> None:
+    """
+    Configure the default specio logger "specio"
+    """
+    log = logging.getLogger("specio")
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.formatter = logging.Formatter(
+        fmt="[%(asctime)s.%(msecs)d] %(levelname)s - %(name)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    log.addHandler(stream_handler)
+    log.setLevel("DEBUG")
