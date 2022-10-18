@@ -1,18 +1,19 @@
-from curses import tparm
+## Example 1, connect to a virtual spectrometer
+from colour import MultiSpectralDistributions
+from matplotlib import pyplot as plt
 
+from specio import SpecRadiometer
 
-class Person:
-    def __init__(self, fname: str, lname: str) -> None:
-        self.name = fname + lname
-        pass
+from colour.plotting import plot_multi_sds
 
+meter = SpecRadiometer()
+m = meter.measure()
 
-class Doctor(Person):
-    def __init__(self, type) -> None:
-        super().__init__(fname="fname", lname="lname")
-        self.type = type
+measurements = [meter.measure().spd for idx in range(0, 100)]
 
+measurements = MultiSpectralDistributions(measurements)
+settings = dict(standalone=False, legend=False)
+(fig, ax) = plot_multi_sds(measurements, **settings)
 
-d = Doctor("Opthamologist")
-
-print(f"{d.name} - {d.type}")
+plt.show()
+pass

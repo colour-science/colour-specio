@@ -1,16 +1,15 @@
 [tool.poetry]
 name = "specio"
 version = "0.1.0"
-description = ""
+description = "Instrument control for spectrometers"
 authors = ["Tucker <tucker@tuckerd.info>"]
 
 [tool.poetry.dependencies]
 python = "~3.10"
-colour-science = "^0.4.1"
+colour-science = "0.4.1"
 numpy = "^1.23.1"
 pyserial = "^3.5"
 aenum = "^3.1.11"
-colour = { path = "../colour", develop = true }
 
 [tool.poetry.dev-dependencies]
 matplotlib = "^3.5.2"
