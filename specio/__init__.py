@@ -5,10 +5,15 @@ Provides support for interacting with various hardware spectrometers.
 """
 __version__ = "0.1.0"
 
-import logging
+from .Common import Measurement, RawMeasurement
+from .Spectrometer import SpecRadiometer
 
-from specio.Common import Measurement, RawMeasurement
-from specio.Spectrometer import SpecRadiometer
+__all__ = [
+    "Measurement",
+    "RawMeasurement",
+    "SpecRadiometer",
+]
+
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -22,6 +27,8 @@ def config__specio_logger() -> None:
     """
     Configure the default specio logger "specio"
     """
+    import logging
+
     log = logging.getLogger("specio")
 
     stream_handler = logging.StreamHandler()
