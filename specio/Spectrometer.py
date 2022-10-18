@@ -3,7 +3,7 @@ from datetime import datetime
 import numpy as np
 from colour import sd_multi_leds
 
-from .Common import Measurement, RawMeasurement
+from .common import Measurement, RawMeasurement
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"

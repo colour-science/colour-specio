@@ -5,8 +5,8 @@ Provides support for interacting with various hardware spectrometers.
 """
 __version__ = "0.1.0"
 
-from .Common import Measurement, RawMeasurement
-from .Spectrometer import SpecRadiometer
+from .common import Measurement, RawMeasurement
+from .spectrometer import SpecRadiometer
 
 __all__ = [
     "Measurement",

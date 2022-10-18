@@ -17,4 +17,3 @@ settings = dict(standalone=False, legend=False)
 (fig, ax) = plot_multi_sds(measurements, **settings)
 
 plt.show()
-pass
