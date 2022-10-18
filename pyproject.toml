@@ -3,6 +3,17 @@ name = "specio"
 version = "0.1.0"
 description = "Instrument control for spectrometers"
 authors = ["Tucker <tucker@tuckerd.info>"]
+keywords = ["colour-science", "spectrometer", "instrument control"]
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/tjdcs/specio"
+repository = "https://github.com/tjdcs/specio"
+include = [
+    "LICENSE",
+]
+
+
+
 
 [tool.poetry.dependencies]
 python = "~3.10"
