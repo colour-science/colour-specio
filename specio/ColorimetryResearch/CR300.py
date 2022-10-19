@@ -8,8 +8,8 @@ import time
 import serial.tools.list_ports
 from colour import SpectralDistribution, SpectralShape
 
-from specio.common import RawMeasurement
-from specio.spectrometer import SpecRadiometer
+from ..common import RawMeasurement
+from ..spectrometer import SpecRadiometer
 
 from .CR_Definitions import (
     CommandError,

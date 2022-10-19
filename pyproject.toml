@@ -1,5 +1,6 @@
 [tool.poetry]
 name = "colour-specio"
+packages = ["specio"]
 version = "0.1.0"
 description = "Instrument control for spectrometers"
 authors = ["Tucker <tucker@tuckerd.info>"]
