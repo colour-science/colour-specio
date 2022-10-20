@@ -4,6 +4,13 @@ from specio.common import Measurement
 
 from specio.protoio._generated_ import measurements_pb2
 
+__author__ = "Tucker Downs"
+__copyright__ = "Copyright 2022 Specio Developers"
+__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+__maintainer__ = "Tucker Downs"
+__email__ = "tucker@tuckerd.info"
+__status__ = "Development"
+
 FILE_EXTENSION = ".csmf"
 
 

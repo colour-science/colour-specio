@@ -18,6 +18,13 @@ from colour import (
 from numpy import byte, ndarray, power
 from specio.protoio._generated_ import measurements_pb2
 
+__author__ = "Tucker Downs"
+__copyright__ = "Copyright 2022 Specio Developers"
+__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+__maintainer__ = "Tucker Downs"
+__email__ = "tucker@tuckerd.info"
+__status__ = "Development"
+
 
 @dataclass
 class RawMeasurement:
