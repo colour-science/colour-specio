@@ -1,6 +1,8 @@
 [tool.poetry]
 name = "colour-specio"
-packages = ["specio"]
+packages = [
+    { include = "specio" },
+]
 version = "0.1.0"
 description = "Instrument control for spectrometers"
 authors = ["Tucker <tucker@tuckerd.info>"]
@@ -14,14 +16,13 @@ include = [
 ]
 
 
-
-
 [tool.poetry.dependencies]
 python = "~3.10"
 colour-science = "0.4.1"
 numpy = "^1.23.1"
 pyserial = "^3.5"
 aenum = "^3.1.11"
+protobuf = "^4.21.8"
 
 [tool.poetry.dev-dependencies]
 matplotlib = "^3.5.2"

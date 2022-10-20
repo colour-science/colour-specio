@@ -556,6 +556,14 @@ python-versions = ">=3.6.2"
 wcwidth = "*"
 
 [[package]]
+name = "protobuf"
+version = "4.21.8"
+description = ""
+category = "main"
+optional = false
+python-versions = ">=3.7"
+
+[[package]]
 name = "psutil"
 version = "5.9.2"
 description = "Cross-platform lib for process and system monitoring in Python."
@@ -807,7 +815,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = "~3.10"
-content-hash = "2e1bfdbbe665d2b28cad84bf62526d128937731de0c548650103f7efc1d2a259"
+content-hash = "47495038886f59d6439668d8e774002c509626a8538ae33652ce7f3ee0b03c4a"
 
 [metadata.files]
 aenum = [
@@ -1100,6 +1108,22 @@ pluggy = []
 prompt-toolkit = [
     {file = "prompt_toolkit-3.0.31-py3-none-any.whl", hash = "sha256:9696f386133df0fc8ca5af4895afe5d78f5fcfe5258111c2a79a1c3e41ffa96d"},
     {file = "prompt_toolkit-3.0.31.tar.gz", hash = "sha256:9ada952c9d1787f52ff6d5f3484d0b4df8952787c087edf6a1f7c2cb1ea88148"},
+]
+protobuf = [
+    {file = "protobuf-4.21.8-cp310-abi3-win32.whl", hash = "sha256:c252c55ee15175aa1b21b7b9896e6add5162d066d5202e75c39f96136f08cce3"},
+    {file = "protobuf-4.21.8-cp310-abi3-win_amd64.whl", hash = "sha256:809ca0b225d3df42655a12f311dd0f4148a943c51f1ad63c38343e457492b689"},
+    {file = "protobuf-4.21.8-cp37-abi3-macosx_10_9_universal2.whl", hash = "sha256:bbececaf3cfea9ea65ebb7974e6242d310d2a7772a6f015477e0d79993af4511"},
+    {file = "protobuf-4.21.8-cp37-abi3-manylinux2014_aarch64.whl", hash = "sha256:b02eabb9ebb1a089ed20626a90ad7a69cee6bcd62c227692466054b19c38dd1f"},
+    {file = "protobuf-4.21.8-cp37-abi3-manylinux2014_x86_64.whl", hash = "sha256:4761201b93e024bb70ee3a6a6425d61f3152ca851f403ba946fb0cde88872661"},
+    {file = "protobuf-4.21.8-cp37-cp37m-win32.whl", hash = "sha256:f2d55ff22ec300c4d954d3b0d1eeb185681ec8ad4fbecff8a5aee6a1cdd345ba"},
+    {file = "protobuf-4.21.8-cp37-cp37m-win_amd64.whl", hash = "sha256:c5f94911dd8feb3cd3786fc90f7565c9aba7ce45d0f254afd625b9628f578c3f"},
+    {file = "protobuf-4.21.8-cp38-cp38-win32.whl", hash = "sha256:b37b76efe84d539f16cba55ee0036a11ad91300333abd213849cbbbb284b878e"},
+    {file = "protobuf-4.21.8-cp38-cp38-win_amd64.whl", hash = "sha256:2c92a7bfcf4ae76a8ac72e545e99a7407e96ffe52934d690eb29a8809ee44d7b"},
+    {file = "protobuf-4.21.8-cp39-cp39-win32.whl", hash = "sha256:89d641be4b5061823fa0e463c50a2607a97833e9f8cfb36c2f91ef5ccfcc3861"},
+    {file = "protobuf-4.21.8-cp39-cp39-win_amd64.whl", hash = "sha256:bc471cf70a0f53892fdd62f8cd4215f0af8b3f132eeee002c34302dff9edd9b6"},
+    {file = "protobuf-4.21.8-py2.py3-none-any.whl", hash = "sha256:a55545ce9eec4030cf100fcb93e861c622d927ef94070c1a3c01922902464278"},
+    {file = "protobuf-4.21.8-py3-none-any.whl", hash = "sha256:0f236ce5016becd989bf39bd20761593e6d8298eccd2d878eda33012645dc369"},
+    {file = "protobuf-4.21.8.tar.gz", hash = "sha256:427426593b55ff106c84e4a88cac855175330cb6eb7e889e85aaa7b5652b686d"},
 ]
 psutil = [
     {file = "psutil-5.9.2-cp27-cp27m-manylinux2010_i686.whl", hash = "sha256:8f024fbb26c8daf5d70287bb3edfafa22283c255287cf523c5d81721e8e5d82c"},
