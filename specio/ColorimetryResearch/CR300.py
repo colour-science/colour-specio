@@ -8,10 +8,10 @@ import time
 import serial.tools.list_ports
 from colour import SpectralDistribution, SpectralShape
 
-from ..common import RawMeasurement
-from ..spectrometer import SpecRadiometer
+from specio.common import RawMeasurement
+from specio.spectrometer import SpecRadiometer
 
-from .CR_Definitions import (
+from specio.ColorimetryResearch.CR_Definitions import (
     CommandError,
     CommandResponse,
     InstrumentType,
@@ -59,6 +59,23 @@ class CR300(SpecRadiometer):
     def __unix_find_port(self):
         raise NotImplementedError("CR discovery is not implemented for Unix")
 
+    def __linux_find_port(self):
+        """_summary_"""
+        for port in serial.tools.list_ports.grep("ACM"):
+            if port.manufacturer != "Colorimetry Research, Inc.":
+                continue
+            try:
+                self.__port = serial.Serial(port.device, timeout=DEFAULT_TIMEOUT)
+                self.__check_instrument_type()
+            except Exception as err:
+                continue
+            else:
+                return
+        else:
+            raise OSError("Could not automatically find CR device.")
+
+        pass
+
     def __initialize_connection__(self, device: str | None = None) -> str:
         if device is None:
             if platform.system() == "Darwin":
@@ -67,6 +84,8 @@ class CR300(SpecRadiometer):
                 self.__win_find_port()
             elif platform.system() == "Unix":
                 self.__unix_find_port()
+            elif platform.system() == "Linux":
+                self.__linux_find_port()
         else:
             self.__port = serial.Serial(device, timeout=DEFAULT_TIMEOUT)
             self.__check_instrument_type()
