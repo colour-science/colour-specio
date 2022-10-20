@@ -3,7 +3,7 @@ Specio
 ======
 Provides support for interacting with various hardware spectrometers.
 """
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from .common import Measurement, RawMeasurement
 from .spectrometer import SpecRadiometer
