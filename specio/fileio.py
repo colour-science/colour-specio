@@ -70,11 +70,37 @@ def load_measurements(file: str) -> List[Measurement]:
     pass
 
 
+from time import time
+
+
+def timer_func(func):
+    # This function shows the execution time of
+    # the function object passed
+    def wrap_func(*args, **kwargs):
+        t1 = time()
+        result = func(*args, **kwargs)
+        t2 = time()
+        print(f"Function {func.__name__!r} executed in {(t2-t1):.4f}s")
+        return result
+
+    return wrap_func
+
+
 if __name__ == "__main__":
     measures = []
     for i in range(10):
         measures.append(Measurement())
 
     file = "/Users/tucker/Downloads/test"
-    save_measurements(file=file, measurements=measures)
-    load_measurements(file=file)
+
+    @timer_func
+    def time_save():
+        save_measurements(file=file, measurements=measures)
+
+    time_save()
+
+    @timer_func
+    def time_read():
+        load_measurements(file=file)
+
+    time_read()

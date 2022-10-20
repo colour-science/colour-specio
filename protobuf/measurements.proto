@@ -10,7 +10,8 @@ message Spectral_Shape {
 
 message Colour_SDS {
     Spectral_Shape shape = 1;
-    repeated double values = 2;
+    repeated double values_double = 2;
+    repeated float values = 4;
     optional string name = 3;
 }
 

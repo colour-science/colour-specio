@@ -6,14 +6,16 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Colour_SDS(_message.Message):
-    __slots__ = ["name", "shape", "values"]
+    __slots__ = ["name", "shape", "values", "values_double"]
     NAME_FIELD_NUMBER: _ClassVar[int]
     SHAPE_FIELD_NUMBER: _ClassVar[int]
+    VALUES_DOUBLE_FIELD_NUMBER: _ClassVar[int]
     VALUES_FIELD_NUMBER: _ClassVar[int]
     name: str
     shape: Spectral_Shape
     values: _containers.RepeatedScalarFieldContainer[float]
-    def __init__(self, shape: _Optional[_Union[Spectral_Shape, _Mapping]] = ..., values: _Optional[_Iterable[float]] = ..., name: _Optional[str] = ...) -> None: ...
+    values_double: _containers.RepeatedScalarFieldContainer[float]
+    def __init__(self, shape: _Optional[_Union[Spectral_Shape, _Mapping]] = ..., values_double: _Optional[_Iterable[float]] = ..., values: _Optional[_Iterable[float]] = ..., name: _Optional[str] = ...) -> None: ...
 
 class Measurement(_message.Message):
     __slots__ = ["XYZ", "anc_data", "cct", "dominant_wl", "exposure", "power", "spd", "spectrometer_id", "time", "xy"]
