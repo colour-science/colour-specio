@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package specio.protoio;
+
+message Spectral_Shape {
+    double start = 1;
+    double end = 2;
+    double step = 3;
+}
+
+message Colour_SDS {
+    Spectral_Shape shape = 1;
+    repeated double values = 2;
+    optional string name = 3;
+}
+
+message XYZ_value {
+    double X = 1;
+    double Y = 2;
+    double Z = 3;
+}
+
+message xy_value {
+    double x = 1;
+    double y = 2;
+}
+
+message cct_value {
+    double cct = 1;
+    double duv = 2;
+}
+
+message Timestamp {
+    // string representing the date in ISO 8601 format
+    string timestr = 1;
+}
+
+message Measurement {
+    Colour_SDS spd = 1;
+    double exposure = 2;
+    XYZ_value XYZ = 3;
+    xy_value xy = 4;
+    cct_value cct = 5;
+    double dominant_wl = 6;
+    double power = 7;
+    string spectrometer_id = 8;
+
+    Timestamp time = 9;
+    optional bytes anc_data = 16;
+}
+
+message Measurement_List {
+    repeated Measurement measurements = 1;
+    
+    string notes = 16;
+    string author = 17;
+    string location = 18;
+    string software = 19;
+}
