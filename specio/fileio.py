@@ -4,6 +4,8 @@ from specio.common import Measurement
 
 from specio.protoio._generated_ import measurements_pb2
 
+FILE_EXTENSION = ".csmf"
+
 
 @dataclass()
 class MeasurementList_Notes:
@@ -42,14 +44,14 @@ def save_measurements(
 
     data_string = pbuf.SerializeToString()
 
-    with open(file=file, mode="wb") as f:
+    with open(file=file + FILE_EXTENSION, mode="wb") as f:
         f.write(data_string)
     pass
 
 
 def load_measurements(file: str) -> List[Measurement]:
     data_string: bytes
-    with open(file=file, mode="rb") as f:
+    with open(file=file + FILE_EXTENSION, mode="rb") as f:
         data_string = f.read()
 
     pbuf = measurements_pb2.Measurement_List()
@@ -66,6 +68,6 @@ if __name__ == "__main__":
     for i in range(10):
         measures.append(Measurement())
 
-    file = "/Users/tucker/Downloads/test.csmf"
+    file = "/Users/tucker/Downloads/test"
     save_measurements(file=file, measurements=measures)
     load_measurements(file=file)
