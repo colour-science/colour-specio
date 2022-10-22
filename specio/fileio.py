@@ -67,7 +67,7 @@ def load_measurements(file: str) -> List[Measurement]:
     measurements: List[Measurement] = []
     for mbuf in pbuf.measurements:
         measurements.append(Measurement(mbuf))
-    pass
+    return measurements
 
 
 if __name__ == "__main__":
