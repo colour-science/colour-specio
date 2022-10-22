@@ -3,6 +3,7 @@ Implement support for operations with CR300
 """
 import logging
 import platform
+import re
 import time
 
 import serial.tools.list_ports
@@ -140,10 +141,17 @@ class CR300(SpecRadiometer):
         data = self.__port.readall()
         data = [float(d) for d in data.decode().splitlines()]
 
+        exposure = self.__write_cmd("RM Exposure").arguments[0]
+        exMatch = re.match("\d*\.?\d*", exposure)
+        if exMatch:
+            exposure = float(exMatch.group()) / 1000
+        else:
+            exposure = -1
+
         return RawMeasurement(
             spd=SpectralDistribution(data=data, domain=shape),
             spectrometer_id=self.readable_id,
-            exposure=0.1,
+            exposure=exposure,
         )
 
     def set_measurement_speed(self, speed: MeasurementSpeed) -> ResponseCode:
