@@ -42,7 +42,7 @@ class Measurement(_message.Message):
     def __init__(self, spd: _Optional[_Union[Colour_SDS, _Mapping]] = ..., exposure: _Optional[float] = ..., XYZ: _Optional[_Union[XYZ_value, _Mapping]] = ..., xy: _Optional[_Union[xy_value, _Mapping]] = ..., cct: _Optional[_Union[cct_value, _Mapping]] = ..., dominant_wl: _Optional[float] = ..., power: _Optional[float] = ..., spectrometer_id: _Optional[str] = ..., time: _Optional[_Union[Timestamp, _Mapping]] = ..., anc_data: _Optional[bytes] = ...) -> None: ...
 
 class Measurement_List(_message.Message):
-    __slots__ = ["ancillary", "author", "colors", "location", "measurements", "notes", "order", "software"]
+    __slots__ = ["ancillary", "author", "location", "measurements", "notes", "order", "software", "test_colors"]
     class TestColor(_message.Message):
         __slots__ = ["c", "f"]
         C_FIELD_NUMBER: _ClassVar[int]
@@ -52,21 +52,21 @@ class Measurement_List(_message.Message):
         def __init__(self, c: _Optional[_Iterable[int]] = ..., f: _Optional[_Iterable[float]] = ...) -> None: ...
     ANCILLARY_FIELD_NUMBER: _ClassVar[int]
     AUTHOR_FIELD_NUMBER: _ClassVar[int]
-    COLORS_FIELD_NUMBER: _ClassVar[int]
     LOCATION_FIELD_NUMBER: _ClassVar[int]
     MEASUREMENTS_FIELD_NUMBER: _ClassVar[int]
     NOTES_FIELD_NUMBER: _ClassVar[int]
     ORDER_FIELD_NUMBER: _ClassVar[int]
     SOFTWARE_FIELD_NUMBER: _ClassVar[int]
+    TEST_COLORS_FIELD_NUMBER: _ClassVar[int]
     ancillary: bytes
     author: str
-    colors: _containers.RepeatedCompositeFieldContainer[Measurement_List.TestColor]
     location: str
     measurements: _containers.RepeatedCompositeFieldContainer[Measurement]
     notes: str
     order: _containers.RepeatedScalarFieldContainer[int]
     software: str
-    def __init__(self, measurements: _Optional[_Iterable[_Union[Measurement, _Mapping]]] = ..., colors: _Optional[_Iterable[_Union[Measurement_List.TestColor, _Mapping]]] = ..., order: _Optional[_Iterable[int]] = ..., notes: _Optional[str] = ..., author: _Optional[str] = ..., location: _Optional[str] = ..., software: _Optional[str] = ..., ancillary: _Optional[bytes] = ...) -> None: ...
+    test_colors: _containers.RepeatedCompositeFieldContainer[Measurement_List.TestColor]
+    def __init__(self, measurements: _Optional[_Iterable[_Union[Measurement, _Mapping]]] = ..., test_colors: _Optional[_Iterable[_Union[Measurement_List.TestColor, _Mapping]]] = ..., order: _Optional[_Iterable[int]] = ..., notes: _Optional[str] = ..., author: _Optional[str] = ..., location: _Optional[str] = ..., software: _Optional[str] = ..., ancillary: _Optional[bytes] = ...) -> None: ...
 
 class Spectral_Shape(_message.Message):
     __slots__ = ["end", "start", "step"]
