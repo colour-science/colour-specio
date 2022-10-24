@@ -1,5 +1,9 @@
 from dataclasses import dataclass
+import re
 from typing import List
+
+import numpy as np
+from numpy import ndarray
 from specio.common import Measurement
 
 from specio.protoio._generated_ import measurements_pb2
@@ -14,7 +18,7 @@ __status__ = "Development"
 FILE_EXTENSION = ".csmf"
 
 
-@dataclass()
+@dataclass
 class MeasurementList_Notes:
     notes: None | str = None
     author: None | str = None
@@ -22,10 +26,21 @@ class MeasurementList_Notes:
     software: None | str = "colour-specio"
 
 
+@dataclass
+class MeasurementList:
+    measurements: List[Measurement]
+    metadata: MeasurementList_Notes = MeasurementList_Notes()
+    test_colors: ndarray | None = None
+    order: List[int] | None = None
+    pass
+
+
 def save_measurements(
     file: str,
     measurements: Measurement | List[Measurement],
     notes: MeasurementList_Notes = MeasurementList_Notes(),
+    order: None | List[int] = None,
+    testColors: None | ndarray | List[List[float]] = None,
 ):
     if type(measurements) == Measurement:
         measurements = [measurements]
@@ -49,6 +64,23 @@ def save_measurements(
     if notes.software:
         pbuf.software = notes.software
 
+    if order is not None:
+        pbuf.order[:] = order
+
+    if testColors is not None:
+        if type(testColors) == list:
+            testColors = np.array(testColors)
+        if np.ptp(testColors) > 1 and np.all(np.modf(testColors)[0] < 1e-8):
+            for color in testColors:
+                tc_buf = measurements_pb2.Measurement_List.TestColor()
+                tc_buf.c[:] = [int(value) for value in color.tolist()]
+                pbuf.colors.append(tc_buf)
+        else:
+            for color in testColors:
+                tc_buf = measurements_pb2.Measurement_List.TestColor()
+                tc_buf.f[:] = color
+                pbuf.colors.append(tc_buf)
+
     data_string = pbuf.SerializeToString()
 
     with open(file=file + FILE_EXTENSION, mode="wb") as f:
@@ -58,6 +90,7 @@ def save_measurements(
 
 def load_measurements(file: str) -> List[Measurement]:
     data_string: bytes
+    file = re.sub(".csmf", "", file)
     with open(file=file + FILE_EXTENSION, mode="rb") as f:
         data_string = f.read()
 
@@ -67,6 +100,11 @@ def load_measurements(file: str) -> List[Measurement]:
     measurements: List[Measurement] = []
     for mbuf in pbuf.measurements:
         measurements.append(Measurement(mbuf))
+
+    measurements: MeasurementList = MeasurementList(
+        measurements=measurements, order=pbuf.order, test_colors=pbuf.colors
+    )
+
     return measurements
 
 
