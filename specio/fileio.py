@@ -88,7 +88,7 @@ def save_measurements(
     pass
 
 
-def load_measurements(file: str) -> List[Measurement]:
+def load_measurements(file: str) -> MeasurementList:
     data_string: bytes
     file = re.sub(".csmf", "", file)
     with open(file=file + FILE_EXTENSION, mode="rb") as f:
