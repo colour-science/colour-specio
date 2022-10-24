@@ -52,9 +52,17 @@ message Measurement {
 
 message Measurement_List {
     repeated Measurement measurements = 1;
-    
+    message TestColor {
+        repeated uint32 c = 1;
+        repeated float f = 2;
+    }
+    repeated TestColor test_colors = 3;
+
+    repeated int32 order = 2;
+
     string notes = 16;
     string author = 17;
     string location = 18;
     string software = 19;
+    bytes ancillary = 20;
 }
