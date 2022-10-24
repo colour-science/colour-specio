@@ -46,7 +46,7 @@ class Measurement:
 
         self.spd = SpectralDistribution(
             data=m.spd.values,
-            shape=SpectralShape(
+            domain=SpectralShape(
                 start=m.spd.shape.start, end=m.spd.shape.end, interval=m.spd.shape.step
             ),
             name=m.spd.name,
