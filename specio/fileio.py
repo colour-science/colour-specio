@@ -102,7 +102,7 @@ def load_measurements(file: str) -> MeasurementList:
         measurements.append(Measurement(mbuf))
 
     measurements: MeasurementList = MeasurementList(
-        measurements=measurements, order=pbuf.order, test_colors=pbuf.colors
+        measurements=measurements, order=pbuf.order, test_colors=pbuf.test_colors
     )
 
     return measurements
