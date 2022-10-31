@@ -58,7 +58,6 @@ class CR300(SpecRadiometer):
         for port in serial.tools.list_ports.grep("Colorimetry"):
             try:
                 self.__port = serial.Serial(port.device, timeout=DEFAULT_TIMEOUT)
-                self.__check_instrument_type()
             except Exception as err:
                 continue
             else:
@@ -75,7 +74,9 @@ class CR300(SpecRadiometer):
             if port.manufacturer != "Colorimetry Research, Inc.":
                 continue
             try:
-                self.__port = serial.Serial(port.device, timeout=DEFAULT_TIMEOUT)
+                self.__port: serial.Serial = serial.Serial(
+                    port.device, timeout=DEFAULT_TIMEOUT
+                )
                 self.__check_instrument_type()
             except Exception as err:
                 continue
@@ -110,92 +111,70 @@ class CR300(SpecRadiometer):
         """
         Construct CR Controller Obj
         """
-        self.__last_cmd_time = 0
-        device = self.__initialize_connection__(device=device)
+        self.__last_cmd_time: float = 0
+        device: str = self.__initialize_connection__(device=device)
 
-        try:
+        self.measurement_speed = speed
 
-            response = self.__write_cmd("RC ID")
-            _sn = response.arguments[0]
+        super().__init__(
+            manufacturer="Colorimetry Research",
+            model=self.model,
+            serial_num=self.serial_number,
+        )
 
-            response = self.__write_cmd("RC Model")
-            _model = Model(response.arguments[0])
-
-            self.__check_aperture()
-
+    @property
+    def firmware(self):
+        if not hasattr(self, "_firmware") or self._firmware is None:
             response = self.__write_cmd("RC Firmware")
-            self.firmware = response.arguments[0]
+            self._firmware = response.arguments[0]
+        return self._firmware
 
-            self.set_measurement_speed(speed)
-
-            super().__init__(
-                manufacturer="Colorimetry Research", model=_model, serial_num=_sn
-            )
-
-        except Exception as err:
-            raise OSError(f"Could not initailize CR300 on port {device}") from err
-
-    def _raw_measure(self) -> SpectralDistribution:
-        """
-        Make spectral measurement with CR
-        """
-        response = self.__write_cmd("M")
-        response = self.__write_cmd("RM Spectrum")
-
-        args = response.arguments[0].split(",")
-        shape = SpectralShape(
-            start=float(args[0]), end=float(args[1]), interval=float(args[2])
-        )
-
-        data = self.__port.readall()
-        data = [float(d) for d in data.decode().splitlines()]
-
-        exposure = self.__write_cmd("RM Exposure").arguments[0]
-        exMatch = re.match("\d*\.?\d*", exposure)
-        if exMatch:
-            exposure = float(exMatch.group()) / 1000
-        else:
-            exposure = -1
-
-        return RawMeasurement(
-            spd=SpectralDistribution(data=data, domain=shape),
-            spectrometer_id=self.readable_id,
-            exposure=exposure,
-        )
-
-    def set_measurement_speed(self, speed: MeasurementSpeed) -> ResponseCode:
-        """
-        Set measurement speed mode for auto exposure
-        """
-        response = self.__write_cmd(f"SM Speed {speed.values[0]}")
-        self.__check_measurement_speed()
-        return response
-
-    def __check_measurement_speed(self) -> MeasurementSpeed:
-        """
-        Get measurement speed mode for auto exposure
-        """
+    @property
+    def measurement_speed(self) -> MeasurementSpeed:
         response = self.__write_cmd("RS Speed")
-        self.measurement_speed = MeasurementSpeed(response.arguments[0].lower())
-        return self.measurement_speed
+        self._measurement_speed = MeasurementSpeed(response.arguments[0].lower())
+        return self._measurement_speed
 
-    def __check_aperture(self):
+    @measurement_speed.setter
+    def measurement_speed(self, speed: MeasurementSpeed):
+        t = self.__write_cmd(f"SM Speed {speed.values[0]}")
+        self._measurement_speed = speed
+
+    @property
+    def aperture(self):
         """
         Get spectrometer aperture value
         """
-        response = self.__write_cmd("RS Aperture")
-        self.aperture = response.arguments[0]
+        if not hasattr(self, "_aperture") or self._aperture is None:
+            response = self.__write_cmd("RS Aperture")
+            self._aperture = response.arguments[0]
+        return self._aperture
 
-    def __check_instrument_type(self):
+    @property
+    def serial_number(self):
+        if not hasattr(self, "_sn") or self._firmware is None:
+            response = self.__write_cmd("RC ID")
+            self._sn = response.arguments[0]
+        return self._sn
+
+    @property
+    def model(self):
+        if not hasattr(self, "_model") or self._firmware is None:
+            response = self.__write_cmd("RC Model")
+            self._model = response.arguments[0]
+        return self._model
+
+    @property
+    def instrument_type(self):
         """
         Check that the connected device is a spectrometer
         """
-        response = self.__write_cmd("RC InstrumentType")
-        self.instrument_type = InstrumentType(response.arguments[0])
-        if self.instrument_type != InstrumentType.SPECTRORADIOMETER:
-            raise OSError(
-                f"Instrument on {self.__port.port} is not type: spectroradiometer"
-            )
+        if not hasattr(self, "_instrument_type") or self._instrument_type is None:
+            response = self.__write_cmd("RC InstrumentType")
+            i_type = InstrumentType(response.arguments[0])
+            self._instrument_type = i_type
+
+        return self._instrument_type
 
     def __clear_buffer(self):
         """
@@ -245,9 +224,45 @@ class CR300(SpecRadiometer):
             arguments=response[3:],
         )
 
+    def _raw_measure(self) -> SpectralDistribution:
+        """
+        Make spectral measurement with CR
+        """
+        response = self.__write_cmd("M")
+        response = self.__write_cmd("RM Spectrum")
+
+        args = response.arguments[0].split(",")
+        shape = SpectralShape(
+            start=float(args[0]), end=float(args[1]), interval=float(args[2])
+        )
+
+        data = self.__port.readall()
+        data = [float(d) for d in data.decode().splitlines()]
+
+        exposure = self.__write_cmd("RM Exposure").arguments[0]
+        exMatch = re.match("\d*\.?\d*", exposure)
+        if exMatch:
+            exposure = float(exMatch.group()) / 1000
+        else:
+            exposure = -1
+
+        return RawMeasurement(
+            spd=SpectralDistribution(data=data, domain=shape),
+            spectrometer_id=self.readable_id,
+            exposure=exposure,
+        )
+
 
 if __name__ == "__main__":
     cr = CR300()
+
+    print(f"Aperture: {cr.aperture}")
+    print(f"Firmware: {cr.firmware}")
+
+    print(f"Measurement Speed: {cr.measurement_speed}")
+    cr.measurement_speed = MeasurementSpeed.FAST_2X
+    print(f"Measurement Speed: {cr.measurement_speed}")
+
+    print(f"Instrument Type: {cr.instrument_type}")
+
     pass
-    m = cr.measure()
-    print(m)
