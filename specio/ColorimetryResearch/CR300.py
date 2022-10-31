@@ -55,7 +55,16 @@ class CR300(SpecRadiometer):
             raise OSError("Could not automatically find CR device.")
 
     def __win_find_port(self):
-        raise NotImplementedError("CR discovery is not implemented for Windows")
+        for port in serial.tools.list_ports.grep("Colorimetry"):
+            try:
+                self.__port = serial.Serial(port.device, timeout=DEFAULT_TIMEOUT)
+                self.__check_instrument_type()
+            except Exception as err:
+                continue
+            else:
+                return
+        else:
+            raise OSError("Could not automatically find CR device.")
 
     def __unix_find_port(self):
         raise NotImplementedError("CR discovery is not implemented for Unix")
@@ -240,4 +249,5 @@ class CR300(SpecRadiometer):
 if __name__ == "__main__":
     cr = CR300()
     pass
-    cr.measure()
+    m = cr.measure()
+    print(m)
