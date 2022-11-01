@@ -51,7 +51,7 @@ class SpecRadiometer:
 
         _measurement = RawMeasurement(
             spd=spd,
-            exposure=0.1,
+            exposure=1,
             spectrometer_id="Virtual Spectrometer",
         )
         return _measurement

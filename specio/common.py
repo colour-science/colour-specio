@@ -141,6 +141,7 @@ class Measurement:
             Spectral Measurement - {self.spectrometer_id}:
                 time: {self.time}
                 XYZ: {np.array2string(self.XYZ, formatter={'float_kind':lambda x: "%.2f" % x})}
+                xy: {np.array2string(self.xy, formatter={'float_kind':lambda x: "%.4f" % x})}
                 CCT: {self.cct:.0f} ± {self.duv:.5f}
                 Dominant WL: {self.dominant_wl:.1f}
                 Exposure: {self.exposure:.3f}
