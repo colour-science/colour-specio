@@ -16,7 +16,7 @@ from colour import (
     xy_to_UCS_uv,
 )
 from numpy import byte, ndarray, power
-from specio.protoio._generated_ import measurements_pb2
+from specio.protobuf import measurements_pb2
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -121,6 +121,7 @@ class Measurement:
         self.duv = _cct[1]
         self.dominant_wl = dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0]
         self.power = self.spd.values.sum() * 1000
+        self.time = datetime.now()
 
     spd: SpectralDistribution
     exposure: float
@@ -132,7 +133,7 @@ class Measurement:
     dominant_wl: float
     power: float
     anc_data: None | Any
-    time: datetime = datetime.now()
+    time: datetime
 
     def __str__(self) -> str:
         return textwrap.dedent(
@@ -142,6 +143,7 @@ class Measurement:
                 XYZ: {np.array2string(self.XYZ, formatter={'float_kind':lambda x: "%.2f" % x})}
                 CCT: {self.cct:.0f} ± {self.duv:.5f}
                 Dominant WL: {self.dominant_wl:.1f}
+                Exposure: {self.exposure:.3f}
             """
         )
 
