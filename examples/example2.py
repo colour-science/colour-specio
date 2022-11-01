@@ -1,13 +1,14 @@
-## Example 2, connect to CR300
+## Example 2, connect to CRSpectrometer
 from matplotlib import pyplot as plt
 
-from specio.ColorimetryResearch import CR300, MeasurementSpeed
+from specio.ColorimetryResearch import CRSpectrometer, MeasurementSpeed
 from colour.plotting import plot_single_sd
+from specio.ColorimetryResearch import CRSpectrometer
 from specio.common import Measurement
 
 # Auto Discovery supported on MacOS
-meter = CR300(speed=MeasurementSpeed.FAST_2X)
-# meter = CR300(device="COM4", speed=MeasurementSpeed.FAST_2X)
+meter = CRSpectrometer(speed=MeasurementSpeed.FAST_2X)
+# meter = CRSpectrometer(device="COM4", speed=MeasurementSpeed.FAST_2X)
 
 # Initiate Measurement
 m: Measurement = meter.measure()

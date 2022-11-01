@@ -3,7 +3,7 @@ from datetime import datetime
 import numpy as np
 from colour import sd_multi_leds
 
-from .common import Measurement, RawMeasurement
+from specio.common import Measurement, RawMeasurement
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -21,12 +21,20 @@ class SpecRadiometer:
         serial_num: str | None = None,
     ):
         self.manufacturer: str = manufacturer
-        self.model: str = model
-        self.serialnum: str | None = serial_num
+        self._model: str = model
+        self._serial_number: str | None = serial_num
+
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def serial_number(self):
+        return self._serial_number
 
     @property
     def readable_id(self) -> str:
-        return f"{self.model} - {self.serialnum}"
+        return f"{self.model} - {self.serial_number}"
 
     def measure(self) -> Measurement:
         _rm = self._raw_measure()
@@ -47,3 +55,9 @@ class SpecRadiometer:
             spectrometer_id="Virtual Spectrometer",
         )
         return _measurement
+
+
+if __name__ == "__main__":
+    t = SpecRadiometer()
+    m = t.measure()
+    print(m)

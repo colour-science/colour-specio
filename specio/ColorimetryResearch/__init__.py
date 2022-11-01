@@ -1,4 +1,4 @@
-from .CR300 import CR300
+from .CRSpectrometer import CRSpectrometer
 from .CR_Definitions import (
     CommandError,
     CommandResponse,
@@ -9,7 +9,7 @@ from .CR_Definitions import (
 )
 
 __all__ = [
-    "CR300",
+    "CRSpectrometer",
     "CommandError",
     "CommandResponse",
     "InstrumentType",
