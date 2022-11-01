@@ -18,19 +18,19 @@ include = [
 
 [tool.poetry.dependencies]
 python = "~3.10"
-colour-science = "0.4.1"
+colour-science = "^0.4.1"
 numpy = "^1.23.1"
 pyserial = "^3.5"
 aenum = "^3.1.11"
 protobuf = "^4.21.8"
 
 [tool.poetry.dev-dependencies]
-matplotlib = "^3.5.2"
-pytest = "^5.2"
-black = "^22.6.0"
-ipykernel = "^6.15.1"
-isort = "^5.10.1"
-flake8 = "^5.0.4"
+matplotlib = "*"
+pytest = "*"
+black = "*"
+ipykernel = "*"
+isort = "*"
+flake8 = "*"
 
 [tool.pyright]
 
