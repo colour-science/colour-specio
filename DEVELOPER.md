@@ -9,7 +9,7 @@ Step 1: Install protobuf on your machine
 
 Step 2: Build protobufs, this builds them for python
 
-`protoc --proto_path=protobuf --python_out=specio/protoio/_generated_ --pyi_out=typings/specio/protoio/_generated_ protobuf/measurements.proto `
+`protoc --proto_path=protobuf --python_out=specio/protobuf --pyi_out=specio/protobuf protobuf/measurements.proto `
 
 ### Optional Steps
 
