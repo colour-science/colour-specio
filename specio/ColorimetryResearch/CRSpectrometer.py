@@ -32,9 +32,12 @@ __status__ = "Development"
 DEFAULT_TIMEOUT = 0.01
 
 
-class CR300(SpecRadiometer):
+class CRSpectrometer(SpecRadiometer):
     """
-    RAII CR300 Implementation.
+    RAII Colorimetry Research Spectroradiometers.
+
+    In particular this implementation was developed and tested with the CR300,
+    but it should work for CR250 or other spectrometers from CR.
     """
 
     def __initialize_connection__(self, device: str | None = None) -> str:
@@ -70,6 +73,9 @@ class CR300(SpecRadiometer):
         """
         self.__last_cmd_time: float = 0
         self.__initialize_connection__(device=device)
+
+        if self.instrument_type is not InstrumentType.SPECTRORADIOMETER:
+            raise RuntimeError("The connected-to device was not a spectroradiometer.")
 
         self.measurement_speed = speed
 
@@ -222,7 +228,7 @@ class CR300(SpecRadiometer):
 
 
 if __name__ == "__main__":
-    cr = CR300()
+    cr = CRSpectrometer()
 
     print(f"Aperture: {cr.aperture}")
     print(f"Firmware: {cr.firmware}")

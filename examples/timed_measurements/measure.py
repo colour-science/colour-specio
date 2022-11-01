@@ -1,4 +1,4 @@
-from specio.ColorimetryResearch import CR300
+from specio.ColorimetryResearch import CRSpectrometer
 from specio.ColorimetryResearch.CR_Definitions import MeasurementSpeed
 from datetime import datetime, timedelta
 from specio.fileio import save_measurements
