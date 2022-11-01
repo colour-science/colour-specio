@@ -29,12 +29,12 @@ class SpecRadiometer:
         return self._model
 
     @property
-    def serial_num(self):
-        return self._serial_num
+    def serial_number(self):
+        return self._serial_number
 
     @property
     def readable_id(self) -> str:
-        return f"{self.model} - {self.serial_num}"
+        return f"{self.model} - {self.serial_number}"
 
     def measure(self) -> Measurement:
         _rm = self._raw_measure()
