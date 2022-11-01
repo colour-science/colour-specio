@@ -6,7 +6,7 @@ import numpy as np
 from numpy import ndarray
 from specio.common import Measurement
 
-from specio.protoio._generated_ import measurements_pb2
+from specio.protobuf import measurements_pb2
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
