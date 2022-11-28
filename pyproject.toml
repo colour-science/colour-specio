@@ -18,7 +18,7 @@ include = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-colour-science = "^0.4.1"
+colour-science = "*"
 numpy = "^1.23.1"
 pyserial = "^3.5"
 aenum = "^3.1.11"
