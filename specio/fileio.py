@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import re
 from typing import List
 
@@ -18,7 +18,7 @@ __status__ = "Development"
 FILE_EXTENSION = ".csmf"
 
 
-@dataclass
+@dataclass()
 class MeasurementList_Notes:
     notes: None | str = None
     author: None | str = None
@@ -26,12 +26,16 @@ class MeasurementList_Notes:
     software: None | str = "colour-specio"
 
 
-@dataclass
+@dataclass()
 class MeasurementList:
-    measurements: List[Measurement]
-    metadata: MeasurementList_Notes = MeasurementList_Notes()
+    measurements: List[Measurement] = field(default_factory=list)
+    metadata: MeasurementList_Notes = field(default_factory=MeasurementList_Notes)
     test_colors: ndarray | None = None
     order: List[int] | None = None
+
+    def __repr__(self) -> str:
+        return "None"
+
     pass
 
 
@@ -101,8 +105,13 @@ def load_measurements(file: str) -> MeasurementList:
     for mbuf in pbuf.measurements:
         measurements.append(Measurement(mbuf))
 
+    tcs = []
+    for color in pbuf.test_colors:
+        tcs.append(color.c)
+    tcs = np.array(tcs)
+
     measurements: MeasurementList = MeasurementList(
-        measurements=measurements, order=pbuf.order, test_colors=pbuf.test_colors
+        measurements=measurements, order=pbuf.order, test_colors=tcs
     )
 
     return measurements

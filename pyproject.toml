@@ -3,7 +3,7 @@ name = "colour-specio"
 packages = [
     { include = "specio" },
 ]
-version = "0.2.7"
+version = "0.2.8"
 description = "Instrument control for spectrometers"
 authors = ["Tucker <tucker@tuckerd.info>"]
 keywords = ["colour-science", "spectrometer", "instrument control"]
@@ -17,7 +17,7 @@ include = [
 
 
 [tool.poetry.dependencies]
-python = "~3.10"
+python = "^3.10"
 colour-science = "^0.4.1"
 numpy = "^1.23.1"
 pyserial = "^3.5"
@@ -31,6 +31,7 @@ black = "*"
 ipykernel = "*"
 isort = "*"
 flake8 = "*"
+pandas = "*"
 
 [tool.pyright]
 
