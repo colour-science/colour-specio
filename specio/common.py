@@ -114,7 +114,7 @@ class Measurement:
             self.spectrometer_id = raw_meas.spectrometer_id
             self.anc_data = raw_meas.anc_data
 
-        self.XYZ = sd_to_XYZ(self.spd, k=6.83)  # TODO colour-science > 0.4.2 k=683
+        self.XYZ = sd_to_XYZ(self.spd, k=683)
         self.xy = XYZ_to_xy(self.XYZ)
         _cct = uv_to_CCT(xy_to_UCS_uv(self.xy))
         self.cct = _cct[0]

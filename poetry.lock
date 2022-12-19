@@ -102,19 +102,18 @@ optional = false
 python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*,!=3.6.*,>=2.7"
 
 [[package]]
-name = "colour"
-version = "0.4.1"
+name = "colour-science"
+version = "0.4.2"
 description = "Colour Science for Python"
 category = "main"
 optional = false
-python-versions = ">= 3.9, < 3.12"
-develop = false
+python-versions = ">=3.9,<3.12"
 
 [package.dependencies]
-imageio = ">= 2, < 3"
-numpy = ">= 1.20, < 2"
-scipy = ">= 1.7, < 2"
-typing-extensions = ">= 4, < 5"
+imageio = ">=2,<3"
+numpy = ">=1.20,<2"
+scipy = ">=1.7,<2"
+typing-extensions = ">=4,<5"
 
 [package.extras]
 development = ["biblib-simple", "black", "blackdoc", "coverage (!=6.3)", "coveralls", "flake8", "flynt", "invoke", "jupyter", "mypy", "pre-commit", "pydata-sphinx-theme", "pydocstyle", "pytest", "pytest-cov", "pytest-xdist", "pyupgrade", "restructuredtext-lint", "sphinx (>=4,<5)", "sphinxcontrib-bibtex", "toml", "twine"]
@@ -123,12 +122,6 @@ meshing = ["trimesh (>=3,<4)"]
 optional = ["networkx (>=2.6,<3)", "pandas (>=1.3,<2)", "tqdm (>=4,<5)"]
 plotting = ["matplotlib (>=3.4,!=3.5.0,!=3.5.1)"]
 read-the-docs = ["matplotlib (>=3.4,!=3.5.0,!=3.5.1)", "networkx (>=2.6,<3)", "pydata-sphinx-theme", "pygraphviz (>=1,<2)", "sphinxcontrib-bibtex", "trimesh (>=3,<4)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/colour-science/colour.git"
-reference = "develop"
-resolved_reference = "257a212e3f157c0fdd4122c157f1faee51f4e099"
 
 [[package]]
 name = "contourpy"
@@ -492,7 +485,10 @@ optional = false
 python-versions = ">=3.8"
 
 [package.dependencies]
-numpy = {version = ">=1.21.0", markers = "python_version >= \"3.10\""}
+numpy = [
+    {version = ">=1.21.0", markers = "python_version >= \"3.10\""},
+    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
+]
 python-dateutil = ">=2.8.1"
 pytz = ">=2020.1"
 
@@ -864,8 +860,8 @@ python-versions = "*"
 
 [metadata]
 lock-version = "1.1"
-python-versions = "~3.10"
-content-hash = "d493c5606e39dd589cb1492288b0b2e09e893d204c9095f3ac622c0b688d7d78"
+python-versions = "^3.10,<3.12"
+content-hash = "ecf115db8fe1db156f3777613c8dfbf8b11b6757e6b1d43752b13a21ea8e1aec"
 
 [metadata.files]
 aenum = [
@@ -986,7 +982,10 @@ colorama = [
     {file = "colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"},
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
 ]
-colour = []
+colour-science = [
+    {file = "colour_science-0.4.2-py3-none-any.whl", hash = "sha256:48246aa3d17a9a07ac335b4a04a00f8d5c624b2d15c5bdef820836ef13e2762d"},
+    {file = "colour_science-0.4.2.tar.gz", hash = "sha256:29a8d4c67104dafeebcd7c942f31e0935e356527a265aa81c4164ab34dd69b66"},
+]
 contourpy = [
     {file = "contourpy-1.0.6-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:613c665529899b5d9fade7e5d1760111a0b011231277a0d36c49f0d3d6914bd6"},
     {file = "contourpy-1.0.6-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:78ced51807ccb2f45d4ea73aca339756d75d021069604c2fccd05390dc3c28eb"},
