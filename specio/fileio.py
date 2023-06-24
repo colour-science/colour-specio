@@ -86,7 +86,7 @@ def save_measurements(
                 pbuf.test_colors.append(tc_buf)
         else:
             for color in testColors:
-                tc_buf = measurements_pb2.Measurement_List.TestColor()
+                tc_buf = measurements_pb2.MeasurementList.TestColor()
                 tc_buf.f[:] = color
                 pbuf.test_colors.append(tc_buf)
 
@@ -114,19 +114,20 @@ def load_measurements(file: str) -> MeasurementList:
 
     tcs = []
     for color in pbuf.test_colors:
-        tcs.append(color.c)
+        if len(color.f) == 0:
+            tcs.append(color.c)
+        else:
+            tcs.append(color.f)
     tcs = np.array(tcs)
 
-    measurements: MeasurementList = MeasurementList(
+    return MeasurementList(
         measurements=measurements,
-        order=pbuf.order,
+        order=np.asarray(pbuf.order),  # type: ignore
         test_colors=tcs,
         metadata=MeasurementList_Notes(
             pbuf.notes, pbuf.author, pbuf.location, pbuf.software
         ),
     )
-
-    return measurements
 
 
 if __name__ == "__main__":
