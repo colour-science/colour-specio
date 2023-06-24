@@ -3,7 +3,7 @@ Specio
 ======
 Provides support for interacting with various hardware spectrometers.
 """
-__version__ = "0.2.8"
+__version__ = "0.2.9"
 
 from .measurement import Measurement, RawMeasurement
 from .spectrometer import SpecRadiometer
@@ -38,4 +38,6 @@ def _config__specio_logger() -> None:
 
     log.addHandler(stream_handler)
     log.setLevel("DEBUG")
+
+
 _config__specio_logger()
