@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
 import re
+from textwrap import dedent
 from typing import List
+from click import File
 
 import numpy as np
 from numpy import ndarray
-from specio.common import Measurement
+from specio.measurement import Measurement
 
 from specio.protobuf import measurements_pb2
 
@@ -34,7 +36,10 @@ class MeasurementList:
     order: List[int] | None = None
 
     def __repr__(self) -> str:
-        return "None"
+        return dedent(
+            f"""MeasurementList
+                {self.metadata.notes}"""
+        )
 
     pass
 
@@ -49,11 +54,11 @@ def save_measurements(
     if type(measurements) == Measurement:
         measurements = [measurements]
 
-    pbuf = measurements_pb2.Measurement_List()
+    pbuf = measurements_pb2.MeasurementList()
 
     m: Measurement
     for m in measurements:
-        m_pbuf = m.to_protobuf()[1]
+        m_pbuf = m.to_buffer(return_pb=True)
         pbuf.measurements.append(m_pbuf)
 
     if notes.notes:
@@ -76,29 +81,31 @@ def save_measurements(
             testColors = np.array(testColors)
         if np.ptp(testColors) > 1 and np.all(np.modf(testColors)[0] < 1e-8):
             for color in testColors:
-                tc_buf = measurements_pb2.Measurement_List.TestColor()
+                tc_buf = measurements_pb2.MeasurementList.TestColor()
                 tc_buf.c[:] = [int(value) for value in color.tolist()]
-                pbuf.colors.append(tc_buf)
+                pbuf.test_colors.append(tc_buf)
         else:
             for color in testColors:
                 tc_buf = measurements_pb2.Measurement_List.TestColor()
                 tc_buf.f[:] = color
-                pbuf.colors.append(tc_buf)
+                pbuf.test_colors.append(tc_buf)
 
     data_string = pbuf.SerializeToString()
 
-    with open(file=file + FILE_EXTENSION, mode="wb") as f:
+    if file[-5:] != ".csmf":
+        file += FILE_EXTENSION
+
+    with open(file=file, mode="wb") as f:
         f.write(data_string)
     pass
 
 
 def load_measurements(file: str) -> MeasurementList:
     data_string: bytes
-    file = re.sub(".csmf", "", file)
-    with open(file=file + FILE_EXTENSION, mode="rb") as f:
+    with open(file, mode="rb") as f:
         data_string = f.read()
 
-    pbuf = measurements_pb2.Measurement_List()
+    pbuf = measurements_pb2.MeasurementList()
     pbuf.ParseFromString(data_string)
 
     measurements: List[Measurement] = []
@@ -111,7 +118,12 @@ def load_measurements(file: str) -> MeasurementList:
     tcs = np.array(tcs)
 
     measurements: MeasurementList = MeasurementList(
-        measurements=measurements, order=pbuf.order, test_colors=tcs
+        measurements=measurements,
+        order=pbuf.order,
+        test_colors=tcs,
+        metadata=MeasurementList_Notes(
+            pbuf.notes, pbuf.author, pbuf.location, pbuf.software
+        ),
     )
 
     return measurements
@@ -140,12 +152,17 @@ if __name__ == "__main__":
 
     @timer_func
     def time_save():
-        save_measurements(file=file, measurements=measures)
+        save_measurements(
+            file=file,
+            measurements=measures,
+            notes=MeasurementList_Notes("Hello", "World", "Burbank"),
+        )
 
     time_save()
 
     @timer_func
     def time_read():
-        load_measurements(file=file)
+        return load_measurements(file=file)
 
-    time_read()
+    m = time_read()
+    pass

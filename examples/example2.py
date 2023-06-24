@@ -4,7 +4,7 @@ from matplotlib import pyplot as plt
 from specio.ColorimetryResearch import CRSpectrometer, MeasurementSpeed
 from colour.plotting import plot_single_sd
 from specio.ColorimetryResearch import CRSpectrometer
-from specio.common import Measurement
+from specio.measurement import Measurement
 
 # Auto Discovery supported on MacOS
 meter = CRSpectrometer(speed=MeasurementSpeed.FAST_2X)

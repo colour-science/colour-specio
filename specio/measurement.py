@@ -2,7 +2,7 @@ import textwrap
 from dataclasses import dataclass
 from datetime import datetime
 
-from typing import Any, Tuple
+from typing import Any, Self, Tuple, cast
 import colour
 
 import numpy as np
@@ -16,7 +16,8 @@ from colour import (
     xy_to_UCS_uv,
 )
 from numpy import byte, ndarray, power
-from specio.protobuf import measurements_pb2
+from specio import protobuf
+from specio.utility import buffer_to_sd, sd_to_buffer
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -34,23 +35,16 @@ class RawMeasurement:
     anc_data: None | Any = None
 
 
-@dataclass
 class Measurement:
-    def _from_protobuf(self, data: bytes | measurements_pb2.Measurement):
-        m: measurements_pb2.Measurement
+    def _from_buffer(self, data: bytes | protobuf.Measurement):
+        m: protobuf.Measurement
         if type(data) == bytes:
-            m = measurements_pb2.Measurement()
+            m = protobuf.Measurement()
             m.ParseFromString(data)
         else:
-            m = data
+            m = cast(protobuf.Measurement, data)
 
-        self.spd = SpectralDistribution(
-            data=m.spd.values,
-            domain=SpectralShape(
-                start=m.spd.shape.start, end=m.spd.shape.end, interval=m.spd.shape.step
-            ),
-            name=m.spd.name,
-        )
+        self.spd = buffer_to_sd(m.spd)
         self.exposure = m.exposure
         self.spectrometer_id = m.spectrometer_id
         self.XYZ = np.array([m.XYZ.X, m.XYZ.Y, m.XYZ.Z])
@@ -60,10 +54,9 @@ class Measurement:
         self.dominant_wl = m.dominant_wl
         self.power = m.power
         self.time = datetime.fromisoformat(m.time.timestr)
-        self.anc_data = None
 
-    def to_protobuf(self) -> Tuple[bytes, measurements_pb2.Measurement]:
-        m = measurements_pb2.Measurement()
+    def to_buffer(self, return_pb: bool = False) -> bytes | protobuf.Measurement:
+        m = protobuf.Measurement()
         m.exposure = self.exposure
         m.dominant_wl = self.dominant_wl
         m.power = self.power
@@ -71,11 +64,9 @@ class Measurement:
 
         m.time.timestr = self.time.isoformat()
 
-        m.spd.values[:] = self.spd.values.tolist()
-        m.spd.shape.start = self.spd.shape.start
-        m.spd.shape.end = self.spd.shape.end
-        m.spd.shape.step = self.spd.shape.interval
-        m.spd.name = self.spd.name
+        m.spd.CopyFrom(
+            cast(protobuf.SpectralDistribution, sd_to_buffer(self.spd, return_pb=True))  # type: ignore
+        )
 
         m.XYZ.X = self.XYZ[0]
         m.XYZ.Y = self.XYZ[1]
@@ -87,17 +78,14 @@ class Measurement:
         m.cct.cct = self.cct
         m.cct.duv = self.duv
 
-        if self.anc_data is not None:
-            pass
-
-        return (m.SerializeToString(), m)
+        return m if return_pb else m.SerializeToString()
 
     def __init__(
         self,
-        raw_meas: (None | RawMeasurement | bytes | measurements_pb2.Measurement) = None,
+        raw_meas: (None | RawMeasurement | bytes | protobuf.Measurement) = None,
     ):
-        if type(raw_meas) is bytes or type(raw_meas) == measurements_pb2.Measurement:
-            self._from_protobuf(raw_meas)
+        if type(raw_meas) is bytes or type(raw_meas) == protobuf.Measurement:
+            self._from_buffer(raw_meas)
             return
 
         if raw_meas is None:
@@ -109,6 +97,7 @@ class Measurement:
             self.spectrometer_id = "Virtual Spectrometer"
             self.anc_data = None
         else:
+            raw_meas = cast(RawMeasurement, raw_meas)
             self.spd = raw_meas.spd
             self.exposure = raw_meas.exposure
             self.spectrometer_id = raw_meas.spectrometer_id
@@ -117,23 +106,11 @@ class Measurement:
         self.XYZ = sd_to_XYZ(self.spd, k=683)
         self.xy = XYZ_to_xy(self.XYZ)
         _cct = uv_to_CCT(xy_to_UCS_uv(self.xy))
-        self.cct = _cct[0]
-        self.duv = _cct[1]
-        self.dominant_wl = dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0]
+        self.cct: float = _cct[0]
+        self.duv: float = _cct[1]
+        self.dominant_wl = float(dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0])
         self.power = self.spd.values.sum() * 1000
         self.time = datetime.now()
-
-    spd: SpectralDistribution
-    exposure: float
-    spectrometer_id: str
-    XYZ: ndarray
-    xy: ndarray
-    cct: ndarray
-    duv: ndarray
-    dominant_wl: float
-    power: float
-    anc_data: None | Any
-    time: datetime
 
     def __str__(self) -> str:
         return textwrap.dedent(
@@ -148,10 +125,32 @@ class Measurement:
             """
         )
 
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __eq__(self, other: Self) -> bool:
+        keys = [
+            "spd",
+            "exposure",
+            "spectrometer_id",
+            "XYZ",
+            "xy",
+            "dominant_wl",
+            "power",
+            "time",
+            "cct",
+            "duv",
+        ]
+        data = [getattr(self, k) == getattr(other, k) for k in keys]
+        for d in data:
+            if not np.all(d):
+                return False
+        return True
+
 
 if __name__ == "__main__":
     m = Measurement()
-    str = m.to_protobuf()[0]
-    print(str)
+    str = m.to_buffer()
     m2 = Measurement(str)
+    print(m2 == m)
     pass

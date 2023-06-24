@@ -1,17 +1,17 @@
 syntax = "proto3";
 
-package specio.protoio;
+package specio;
 
-message Spectral_Shape {
+message SpectralShape {
     double start = 1;
     double end = 2;
     double step = 3;
 }
 
-message Colour_SDS {
-    Spectral_Shape shape = 1;
-    repeated double values_double = 2;
-    repeated float values = 4;
+message SpectralDistribution {
+    SpectralShape shape = 1;
+    repeated double values = 2;
+    repeated float values_old = 4;
     optional string name = 3;
 }
 
@@ -37,7 +37,7 @@ message Timestamp {
 }
 
 message Measurement {
-    Colour_SDS spd = 1;
+    SpectralDistribution spd = 1;
     double exposure = 2;
     XYZ_value XYZ = 3;
     xy_value xy = 4;
@@ -47,10 +47,11 @@ message Measurement {
     string spectrometer_id = 8;
 
     Timestamp time = 9;
-    optional bytes anc_data = 16;
+
+    reserved 16;
 }
 
-message Measurement_List {
+message MeasurementList {
     repeated Measurement measurements = 1;
     message TestColor {
         repeated uint32 c = 1;

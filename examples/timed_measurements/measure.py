@@ -2,7 +2,7 @@ import time
 from specio.ColorimetryResearch import CRSpectrometer
 from specio.ColorimetryResearch.CR_Definitions import MeasurementSpeed
 from datetime import datetime, timedelta
-from specio.fileio import MeasurementList_Notes, save_measurements
+from specio.io.io import MeasurementList_Notes, save_measurements
 
 cr = CRSpectrometer(speed=MeasurementSpeed.SLOW)
 

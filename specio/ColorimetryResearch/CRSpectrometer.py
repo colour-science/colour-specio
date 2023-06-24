@@ -9,7 +9,7 @@ import time
 import serial.tools.list_ports
 from colour import SpectralDistribution, SpectralShape
 
-from specio.common import RawMeasurement
+from specio.measurement import RawMeasurement
 from specio.spectrometer import SpecRadiometer
 
 from specio.ColorimetryResearch.CR_Definitions import (
@@ -43,23 +43,22 @@ class CRSpectrometer(SpecRadiometer):
     def __initialize_connection__(self, device: str | None = None) -> str:
         if device is None:
             if platform.system() == "Darwin":
-                portlist = list(serial.tools.list_ports.grep("usbmodem"))
+                port_list = list(serial.tools.list_ports.grep("usbmodem"))
             elif platform.system() == "Windows":
-                portlist = list(serial.tools.list_ports.grep("Colorimetry"))
+                port_list = list(serial.tools.list_ports.grep("Colorimetry"))
             elif platform.system() == "Unix":
                 raise NotImplementedError("CR discovery is not implemented for Unix")
             elif platform.system() == "Linux":
-                portlist = list(serial.tools.list_ports.grep("ACM"))
-
-            if len(portlist) == 0:
+                port_list = list(serial.tools.list_ports.grep("ACM"))
+            else:
                 raise OSError("Could not find any candidates for ColorimetryResearch")
 
-            if len(portlist) > 1:
+            if len(port_list) > 1:
                 raise NotImplementedError(
                     "Too many port candidates found, only a single port may be auto discovered."
                 )
 
-            device = portlist[0].device
+            device = port_list[0].device
 
         self.__port = serial.Serial(device, timeout=DEFAULT_TIMEOUT, baudrate=115200)
 

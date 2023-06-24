@@ -10,7 +10,7 @@ from colour.plotting import (
     plot_planckian_locus_in_chromaticity_diagram_CIE1960UCS,
 )
 
-from specio.fileio import load_measurements
+from specio.io.io import load_measurements
 
 measurements = load_measurements("data\\example_data_file")
 measurements = measurements.measurements

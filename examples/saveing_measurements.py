@@ -1,5 +1,5 @@
-from specio.common import Measurement
-from specio.fileio import load_measurements, save_measurements
+from specio.measurement import Measurement
+from specio import load_measurements, save_measurements
 
 
 if __name__ == "__main__":

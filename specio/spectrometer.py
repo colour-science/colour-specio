@@ -3,7 +3,7 @@ from datetime import datetime
 import numpy as np
 from colour import sd_multi_leds
 
-from specio.common import Measurement, RawMeasurement
+from specio.measurement import Measurement, RawMeasurement
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"

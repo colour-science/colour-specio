@@ -1,7 +1,7 @@
 from typing import Any
 
 from aenum import Enum, MultiValueEnum
-from attr import dataclass
+from dataclasses import dataclass
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
