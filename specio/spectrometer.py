@@ -46,7 +46,9 @@ class SpecRadiometer:
         widths = np.random.randint(40, 80, 3)
         powers = np.random.randint(10, 40, 3) / 1000
         spd = sd_multi_leds(
-            peak_wavelengths=peaks, fwhm=widths, peak_power_ratios=powers
+            peak_wavelengths=peaks,
+            half_spectral_widths=widths / 2,
+            peak_power_ratios=powers,
         )
 
         _measurement = RawMeasurement(
