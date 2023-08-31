@@ -92,7 +92,7 @@ class Measurement:
             self.spd = colour.sd_multi_leds(
                 np.random.randint(400, 700, size=3), np.random.randint(40, 150, size=3)
             )
-            self.spd.values / 1000
+            self.spd.values /= 1000
             self.exposure = 1
             self.spectrometer_id = "Virtual Spectrometer"
             self.anc_data = None
@@ -103,7 +103,11 @@ class Measurement:
             self.spectrometer_id = raw_meas.spectrometer_id
             self.anc_data = raw_meas.anc_data
 
-        self.XYZ = sd_to_XYZ(self.spd, k=683)
+        method = "ASTM E308"
+        if self.spd.shape.interval not in [1, 5, 10, 20]:
+            method = "Integration"
+
+        self.XYZ = sd_to_XYZ(self.spd, k=683, method=method)
         self.xy = XYZ_to_xy(self.XYZ)
         _cct = uv_to_CCT(xy_to_UCS_uv(self.xy))
         self.cct: float = _cct[0]
