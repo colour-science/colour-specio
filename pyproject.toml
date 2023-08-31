@@ -1,9 +1,7 @@
 [tool.poetry]
 name = "colour-specio"
-packages = [
-    { include = "specio" },
-]
-version = "0.2.9"
+packages = [{ include = "specio" }]
+version = "0.2.10"
 description = "Instrument control for spectrometers"
 authors = ["Tucker <tucker@tuckerd.info>"]
 keywords = ["colour-science", "spectrometer", "instrument control"]
@@ -11,9 +9,7 @@ readme = "README.md"
 license = "MIT"
 homepage = "https://github.com/tjdcs/specio"
 repository = "https://github.com/tjdcs/specio"
-include = [
-    "LICENSE",
-]
+include = ["LICENSE"]
 
 
 [tool.poetry.dependencies]
