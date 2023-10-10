@@ -52,7 +52,7 @@ class Measurement:
         self.cct = m.cct.cct
         self.duv = m.cct.duv
         self.dominant_wl = m.dominant_wl
-        self.power = m.power
+        self.power = np.sum(self.spd.values)
         self.time = datetime.fromisoformat(m.time.timestr)
 
     def to_buffer(self, return_pb: bool = False) -> bytes | protobuf.Measurement:
@@ -113,7 +113,7 @@ class Measurement:
         self.cct: float = _cct[0]
         self.duv: float = _cct[1]
         self.dominant_wl = float(dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0])
-        self.power = self.spd.values.sum() * 1000
+        self.power = self.spd.values.sum()
         self.time = datetime.now()
 
     def __str__(self) -> str:

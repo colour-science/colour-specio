@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
 from textwrap import dedent
-from typing import List
+from typing import List, cast
 
 import numpy as np
+import numpy.typing as npt
 from numpy import ndarray
 from specio.measurement import Measurement
 
@@ -26,12 +27,12 @@ class MeasurementList_Notes:
     software: None | str = "colour-specio"
 
 
-@dataclass()
+@dataclass(kw_only=True)
 class MeasurementList:
-    measurements: List[Measurement] = field(default_factory=list)
+    test_colors: ndarray
+    order: List[int]
+    measurements: npt.NDArray = field(default_factory=lambda: np.zeros(shape=(0, 0)))
     metadata: MeasurementList_Notes = field(default_factory=MeasurementList_Notes)
-    test_colors: ndarray | None = None
-    order: List[int] | None = None
 
     def __repr__(self) -> str:
         return dedent(
@@ -51,12 +52,12 @@ def save_measurements(
 ):
     if type(measurements) == Measurement:
         measurements = [measurements]
+    measurements = cast(list, measurements)
 
     pbuf = measurements_pb2.MeasurementList()
 
-    m: Measurement
     for m in measurements:
-        m_pbuf = m.to_buffer(return_pb=True)
+        m_pbuf = cast(measurements_pb2.Measurement, m.to_buffer(return_pb=True))
         pbuf.measurements.append(m_pbuf)
 
     if notes.notes:
@@ -77,6 +78,8 @@ def save_measurements(
     if testColors is not None:
         if type(testColors) == list:
             testColors = np.array(testColors)
+        testColors = cast(np.ndarray, testColors)
+
         if np.ptp(testColors) > 1 and np.all(np.modf(testColors)[0] < 1e-8):
             for color in testColors:
                 tc_buf = measurements_pb2.MeasurementList.TestColor()
@@ -106,9 +109,10 @@ def load_measurements(file: str) -> MeasurementList:
     pbuf = measurements_pb2.MeasurementList()
     pbuf.ParseFromString(data_string)
 
-    measurements: List[Measurement] = []
+    measurements = []
     for mbuf in pbuf.measurements:
         measurements.append(Measurement(mbuf))
+    measurements = np.asarray(measurements)
 
     tcs = []
     for color in pbuf.test_colors:
