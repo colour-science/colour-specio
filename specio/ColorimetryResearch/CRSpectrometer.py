@@ -40,7 +40,7 @@ class CRSpectrometer(SpecRadiometer):
     but it should work for CR250 or other spectrometers from CR.
     """
 
-    def __initialize_connection__(self, device: str | None = None) -> str:
+    def __initialize_connection__(self, device: str | None = None) -> None:
         if device is None:
             if platform.system() == "Darwin":
                 port_list = list(serial.tools.list_ports.grep("usbmodem"))
@@ -58,14 +58,14 @@ class CRSpectrometer(SpecRadiometer):
                     "Too many port candidates found, only a single port may be auto discovered."
                 )
 
-            device = port_list[0].device
+            device = port_list[0].device  # type: ignore
 
         self.__port = serial.Serial(device, timeout=DEFAULT_TIMEOUT, baudrate=115200)
 
     def __init__(
         self,
         device: str | None = None,
-        speed: MeasurementSpeed = MeasurementSpeed.NORMAL,
+        speed: MeasurementSpeed = MeasurementSpeed.NORMAL,  # type: ignore
     ):
         """
         Construct CR Controller Obj
@@ -152,14 +152,14 @@ class CRSpectrometer(SpecRadiometer):
         log = logging.getLogger("specio.CR")
         log.debug(f"Sending CMD: {command}")
 
-        command = (command + "\n").encode()
+        enc_command: bytes = (command + "\n").encode()
         self.__clear_buffer()
         if self.__last_cmd_time + DEFAULT_TIMEOUT > time.time():
             time.sleep(
                 max(self.__last_cmd_time + DEFAULT_TIMEOUT + 0.001 - time.time(), 0)
             )
 
-        self.__port.write(command)
+        self.__port.write(enc_command)
         self.__last_cmd_time = time.time()
 
         while self.__port.in_waiting < 1:
@@ -197,7 +197,7 @@ class CRSpectrometer(SpecRadiometer):
             arguments=args,
         )
 
-    def _raw_measure(self) -> SpectralDistribution:
+    def _raw_measure(self) -> RawMeasurement:
         """
         Make spectral measurement with CR
         """

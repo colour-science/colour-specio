@@ -130,7 +130,7 @@ class Measurement:
         )
 
     def __repr__(self) -> str:
-        return self.__str__()
+        return f"Spectral Measurement - {self.spectrometer_id}, Time: {self.time}"
 
     def __eq__(self, other: Self) -> bool:
         keys = [
