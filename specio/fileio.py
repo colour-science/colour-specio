@@ -6,7 +6,6 @@ import numpy as np
 import numpy.typing as npt
 from numpy import ndarray
 from specio.measurement import Measurement
-
 from specio.protobuf import measurements_pb2
 
 __author__ = "Tucker Downs"
@@ -15,8 +14,6 @@ __license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.m
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tuckerd.info"
 __status__ = "Development"
-
-FILE_EXTENSION = ".csmf"
 
 
 @dataclass()
@@ -92,9 +89,6 @@ def save_measurements(
                 pbuf.test_colors.append(tc_buf)
 
     data_string = pbuf.SerializeToString()
-
-    if file[-5:] != ".csmf":
-        file += FILE_EXTENSION
 
     with open(file=file, mode="wb") as f:
         f.write(data_string)
