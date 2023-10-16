@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "colour-specio"
 packages = [{ include = "specio" }]
-version = "0.2.10"
+version = "0.2.11"
 description = "Instrument control for spectrometers"
 authors = ["Tucker <tucker@tuckerd.info>"]
 keywords = ["colour-science", "spectrometer", "instrument control"]
