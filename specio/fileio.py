@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import List, cast
 
 import numpy as np
@@ -100,7 +101,10 @@ def save_measurements(
     pass
 
 
-def load_measurements(file: str) -> MeasurementList:
+def load_measurements(file: str | Path) -> MeasurementList:
+    if issubclass(type(file), Path):
+        file = str(file)
+
     data_string: bytes
     with open(file, mode="rb") as f:
         data_string = f.read()
