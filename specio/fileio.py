@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
-from textwrap import dedent
 from typing import List, cast
 
 import numpy as np
 import numpy.typing as npt
+import xxhash
+from colour.colorimetry.spectrum import MultiSpectralDistributions
 from numpy import ndarray
 from specio.measurement import Measurement
 from specio.protobuf import measurements_pb2
@@ -31,11 +32,15 @@ class MeasurementList:
     measurements: npt.NDArray = field(default_factory=lambda: np.zeros(shape=(0, 0)))
     metadata: MeasurementList_Notes = field(default_factory=MeasurementList_Notes)
 
+    @property
+    def shortname(self) -> str:
+        if self.metadata.notes is None or self.metadata.notes == "":
+            spds = MultiSpectralDistributions([m.spd for m in self.measurements])
+            return xxhash.xxh32_hexdigest(np.ascontiguousarray(spds.values).data)
+        return self.metadata.notes
+
     def __repr__(self) -> str:
-        return dedent(
-            f"""MeasurementList
-                {self.metadata.notes}"""
-        )
+        return f"MeasurementList - {self.shortname}"
 
     pass
 
