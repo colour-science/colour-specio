@@ -2,20 +2,18 @@ import textwrap
 from dataclasses import dataclass
 from datetime import datetime
 
-from typing import Any, Self, Tuple, cast
+from typing import Any, Self, cast
 import colour
 
 import numpy as np
 from colour import (
     SpectralDistribution,
-    SpectralShape,
     XYZ_to_xy,
     dominant_wavelength,
     sd_to_XYZ,
     uv_to_CCT,
     xy_to_UCS_uv,
 )
-from numpy import byte, ndarray, power
 from specio import protobuf
 from specio.utility import buffer_to_sd, sd_to_buffer
 
@@ -23,7 +21,7 @@ __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
 __license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
 __maintainer__ = "Tucker Downs"
-__email__ = "tucker@tuckerd.info"
+__email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 
@@ -157,4 +155,3 @@ if __name__ == "__main__":
     str = m.to_buffer()
     m2 = Measurement(str)
     print(m2 == m)
-    pass

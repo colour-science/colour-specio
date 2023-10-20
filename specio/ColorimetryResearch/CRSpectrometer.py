@@ -17,7 +17,6 @@ from specio.ColorimetryResearch.CR_Definitions import (
     CommandResponse,
     InstrumentType,
     MeasurementSpeed,
-    Model,
     ResponseCode,
     ResponseType,
 )
@@ -26,7 +25,7 @@ __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
 __license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
 __maintainer__ = "Tucker Downs"
-__email__ = "tucker@tuckerd.info"
+__email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 DEFAULT_TIMEOUT = 0.01
@@ -213,7 +212,7 @@ class CRSpectrometer(SpecRadiometer):
         data = [float(d) for d in data.decode().splitlines()]
 
         exposure = self.__write_cmd("RM Exposure").arguments[0]
-        exMatch = re.match("\d*\.?\d*", exposure)
+        exMatch = re.match(r"\d*\.?\d*", exposure)
         if exMatch:
             exposure = float(exMatch.group()) / 1000
         else:
@@ -238,4 +237,3 @@ if __name__ == "__main__":
 
     print(f"Instrument Type: {cr.instrument_type}")
 
-    pass

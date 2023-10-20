@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, cast
+from typing import cast
 
 import numpy as np
 import numpy.typing as npt
@@ -14,7 +14,7 @@ __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
 __license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
 __maintainer__ = "Tucker Downs"
-__email__ = "tucker@tuckerd.info"
+__email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 
@@ -29,7 +29,7 @@ class MeasurementList_Notes:
 @dataclass(kw_only=True)
 class MeasurementList:
     test_colors: ndarray
-    order: List[int]
+    order: list[int]
     measurements: npt.NDArray = field(default_factory=lambda: np.zeros(shape=(0, 0)))
     metadata: MeasurementList_Notes = field(default_factory=MeasurementList_Notes)
 
@@ -43,15 +43,14 @@ class MeasurementList:
     def __repr__(self) -> str:
         return f"MeasurementList - {self.shortname}"
 
-    pass
 
 
 def save_measurements(
     file: str,
-    measurements: Measurement | List[Measurement],
+    measurements: Measurement | list[Measurement],
     notes: MeasurementList_Notes = MeasurementList_Notes(),
-    order: None | List[int] = None,
-    testColors: None | ndarray | List[List[float]] = None,
+    order: None | list[int] = None,
+    testColors: None | ndarray | list[list[float]] = None,
 ):
     if type(measurements) == Measurement:
         measurements = [measurements]
@@ -98,7 +97,6 @@ def save_measurements(
 
     with open(file=file, mode="wb") as f:
         f.write(data_string)
-    pass
 
 
 def load_measurements(file: str | Path) -> MeasurementList:
@@ -171,4 +169,3 @@ if __name__ == "__main__":
         return load_measurements(file=file)
 
     m = time_read()
-    pass

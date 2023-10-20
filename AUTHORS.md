@@ -1,2 +1,1 @@
-Tucker Downs <tucker@tuckerd.info>
-Tucker Downs <tucker@roevisual.com>
+Tucker Downs <tucker@tjdcs.dev>
