@@ -1,8 +1,9 @@
 from typing import cast
-from specio import protobuf
-from colour import SpectralDistribution, SpectralShape
 
 import numpy as np
+from colour import SpectralDistribution, SpectralShape
+
+from specio import protobuf
 
 
 def sd_shape_to_buffer(
@@ -35,8 +36,12 @@ def sd_shape_to_buffer(
     return pb if return_pb else pb.SerializeToString()
 
 
-def buffer_to_sd_shape(buffer: bytes | protobuf.SpectralShape) -> SpectralShape:
-    """Convert buffer back to `SpectralDistribution`
+def buffer_to_sd_shape(
+    buffer: bytes | protobuf.SpectralShape,
+) -> SpectralShape:
+    """
+    Convert buffer back to `SpectralDistribution`
+
     Parameters
     ----------
     buffer : bytes | protobuf.SpectralShape
@@ -51,9 +56,10 @@ def buffer_to_sd_shape(buffer: bytes | protobuf.SpectralShape) -> SpectralShape:
     --------
     `sd_shape_to_buffer`
     """
-    if issubclass(type(buffer), bytes):
+
+    if isinstance(buffer, bytes):
         pb = protobuf.SpectralShape()
-        pb.ParseFromString(buffer)  # type: ignore
+        pb.ParseFromString(buffer)
         buffer = pb
     pb = cast(protobuf.SpectralShape, buffer)
 
@@ -83,7 +89,10 @@ def sd_to_buffer(
     pb.name = sd.name
 
     pb.shape.CopyFrom(
-        cast(protobuf.SpectralShape, sd_shape_to_buffer(sd.shape, return_pb=True))
+        cast(
+            protobuf.SpectralShape,
+            sd_shape_to_buffer(sd.shape, return_pb=True),
+        )
     )
 
     pb.values.extend(sd.values.astype(np.double).tolist())
@@ -92,7 +101,9 @@ def sd_to_buffer(
     return pb if return_pb else pb.SerializeToString()
 
 
-def buffer_to_sd(buffer: bytes | protobuf.SpectralDistribution) -> SpectralDistribution:
+def buffer_to_sd(
+    buffer: bytes | protobuf.SpectralDistribution,
+) -> SpectralDistribution:
     """Try to convert a byte buffer to SpectralDistribution
 
     Parameters
@@ -111,9 +122,9 @@ def buffer_to_sd(buffer: bytes | protobuf.SpectralDistribution) -> SpectralDistr
         _description_
     """
 
-    if issubclass(type(buffer), bytes):
+    if isinstance(buffer, bytes):
         pb = protobuf.SpectralDistribution()
-        pb.ParseFromString(buffer)  # type: ignore
+        pb.ParseFromString(buffer)
         buffer = pb
     pb = cast(protobuf.SpectralDistribution, buffer)
 
@@ -127,7 +138,12 @@ def buffer_to_sd(buffer: bytes | protobuf.SpectralDistribution) -> SpectralDistr
     )
 
 
-__all__ = ["sd_to_buffer", "buffer_to_sd", "sd_shape_to_buffer", "buffer_to_sd_shape"]
+__all__ = [
+    "sd_to_buffer",
+    "buffer_to_sd",
+    "sd_shape_to_buffer",
+    "buffer_to_sd_shape",
+]
 
 if __name__ == "__main__":
     wl = np.arange(300, 700, 20)

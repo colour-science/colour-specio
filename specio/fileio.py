@@ -7,12 +7,15 @@ import numpy.typing as npt
 import xxhash
 from colour.colorimetry.spectrum import MultiSpectralDistributions
 from numpy import ndarray
+
 from specio.measurement import Measurement
 from specio.protobuf import measurements_pb2
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
-__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+__license__ = (
+    "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+)
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
@@ -30,19 +33,26 @@ class MeasurementList_Notes:
 class MeasurementList:
     test_colors: ndarray
     order: list[int]
-    measurements: npt.NDArray = field(default_factory=lambda: np.zeros(shape=(0, 0)))
-    metadata: MeasurementList_Notes = field(default_factory=MeasurementList_Notes)
+    measurements: npt.NDArray = field(
+        default_factory=lambda: np.zeros(shape=(0, 0))
+    )
+    metadata: MeasurementList_Notes = field(
+        default_factory=MeasurementList_Notes
+    )
 
     @property
     def shortname(self) -> str:
         if self.metadata.notes is None or self.metadata.notes == "":
-            spds = MultiSpectralDistributions([m.spd for m in self.measurements])
-            return xxhash.xxh32_hexdigest(np.ascontiguousarray(spds.values).data)
+            spds = MultiSpectralDistributions(
+                [m.spd for m in self.measurements]
+            )
+            return xxhash.xxh32_hexdigest(
+                np.ascontiguousarray(spds.values).data
+            )
         return self.metadata.notes
 
     def __repr__(self) -> str:
         return f"MeasurementList - {self.shortname}"
-
 
 
 def save_measurements(
@@ -59,7 +69,9 @@ def save_measurements(
     pbuf = measurements_pb2.MeasurementList()
 
     for m in measurements:
-        m_pbuf = cast(measurements_pb2.Measurement, m.to_buffer(return_pb=True))
+        m_pbuf = cast(
+            measurements_pb2.Measurement, m.to_buffer(return_pb=True)
+        )
         pbuf.measurements.append(m_pbuf)
 
     if notes.notes:
@@ -100,7 +112,7 @@ def save_measurements(
 
 
 def load_measurements(file: str | Path) -> MeasurementList:
-    if issubclass(type(file), Path):
+    if isinstance(file, Path):
         file = str(file)
 
     data_string: bytes

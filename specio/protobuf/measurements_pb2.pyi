@@ -1,7 +1,12 @@
-from google.protobuf.internal import containers as _containers
+from typing import ClassVar as _ClassVar
+from typing import Iterable as _Iterable
+from typing import Mapping as _Mapping
+from typing import Optional as _Optional
+from typing import Union as _Union
+
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
+from google.protobuf.internal import containers as _containers
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -13,7 +18,12 @@ class SpectralShape(_message.Message):
     start: float
     end: float
     step: float
-    def __init__(self, start: _Optional[float] = ..., end: _Optional[float] = ..., step: _Optional[float] = ...) -> None: ...
+    def __init__(
+        self,
+        start: _Optional[float] = ...,
+        end: _Optional[float] = ...,
+        step: _Optional[float] = ...,
+    ) -> None: ...
 
 class SpectralDistribution(_message.Message):
     __slots__ = ["shape", "values", "values_old", "name"]
@@ -25,7 +35,13 @@ class SpectralDistribution(_message.Message):
     values: _containers.RepeatedScalarFieldContainer[float]
     values_old: _containers.RepeatedScalarFieldContainer[float]
     name: str
-    def __init__(self, shape: _Optional[_Union[SpectralShape, _Mapping]] = ..., values: _Optional[_Iterable[float]] = ..., values_old: _Optional[_Iterable[float]] = ..., name: _Optional[str] = ...) -> None: ...
+    def __init__(
+        self,
+        shape: _Optional[_Union[SpectralShape, _Mapping]] = ...,
+        values: _Optional[_Iterable[float]] = ...,
+        values_old: _Optional[_Iterable[float]] = ...,
+        name: _Optional[str] = ...,
+    ) -> None: ...
 
 class XYZ_value(_message.Message):
     __slots__ = ["X", "Y", "Z"]
@@ -35,7 +51,12 @@ class XYZ_value(_message.Message):
     X: float
     Y: float
     Z: float
-    def __init__(self, X: _Optional[float] = ..., Y: _Optional[float] = ..., Z: _Optional[float] = ...) -> None: ...
+    def __init__(
+        self,
+        X: _Optional[float] = ...,
+        Y: _Optional[float] = ...,
+        Z: _Optional[float] = ...,
+    ) -> None: ...
 
 class xy_value(_message.Message):
     __slots__ = ["x", "y"]
@@ -43,7 +64,9 @@ class xy_value(_message.Message):
     Y_FIELD_NUMBER: _ClassVar[int]
     x: float
     y: float
-    def __init__(self, x: _Optional[float] = ..., y: _Optional[float] = ...) -> None: ...
+    def __init__(
+        self, x: _Optional[float] = ..., y: _Optional[float] = ...
+    ) -> None: ...
 
 class cct_value(_message.Message):
     __slots__ = ["cct", "duv"]
@@ -51,7 +74,9 @@ class cct_value(_message.Message):
     DUV_FIELD_NUMBER: _ClassVar[int]
     cct: float
     duv: float
-    def __init__(self, cct: _Optional[float] = ..., duv: _Optional[float] = ...) -> None: ...
+    def __init__(
+        self, cct: _Optional[float] = ..., duv: _Optional[float] = ...
+    ) -> None: ...
 
 class Timestamp(_message.Message):
     __slots__ = ["timestr"]
@@ -60,7 +85,17 @@ class Timestamp(_message.Message):
     def __init__(self, timestr: _Optional[str] = ...) -> None: ...
 
 class Measurement(_message.Message):
-    __slots__ = ["spd", "exposure", "XYZ", "xy", "cct", "dominant_wl", "power", "spectrometer_id", "time"]
+    __slots__ = [
+        "spd",
+        "exposure",
+        "XYZ",
+        "xy",
+        "cct",
+        "dominant_wl",
+        "power",
+        "spectrometer_id",
+        "time",
+    ]
     SPD_FIELD_NUMBER: _ClassVar[int]
     EXPOSURE_FIELD_NUMBER: _ClassVar[int]
     XYZ_FIELD_NUMBER: _ClassVar[int]
@@ -79,17 +114,42 @@ class Measurement(_message.Message):
     power: float
     spectrometer_id: str
     time: Timestamp
-    def __init__(self, spd: _Optional[_Union[SpectralDistribution, _Mapping]] = ..., exposure: _Optional[float] = ..., XYZ: _Optional[_Union[XYZ_value, _Mapping]] = ..., xy: _Optional[_Union[xy_value, _Mapping]] = ..., cct: _Optional[_Union[cct_value, _Mapping]] = ..., dominant_wl: _Optional[float] = ..., power: _Optional[float] = ..., spectrometer_id: _Optional[str] = ..., time: _Optional[_Union[Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(
+        self,
+        spd: _Optional[_Union[SpectralDistribution, _Mapping]] = ...,
+        exposure: _Optional[float] = ...,
+        XYZ: _Optional[_Union[XYZ_value, _Mapping]] = ...,
+        xy: _Optional[_Union[xy_value, _Mapping]] = ...,
+        cct: _Optional[_Union[cct_value, _Mapping]] = ...,
+        dominant_wl: _Optional[float] = ...,
+        power: _Optional[float] = ...,
+        spectrometer_id: _Optional[str] = ...,
+        time: _Optional[_Union[Timestamp, _Mapping]] = ...,
+    ) -> None: ...
 
 class MeasurementList(_message.Message):
-    __slots__ = ["measurements", "test_colors", "order", "notes", "author", "location", "software", "ancillary"]
+    __slots__ = [
+        "measurements",
+        "test_colors",
+        "order",
+        "notes",
+        "author",
+        "location",
+        "software",
+        "ancillary",
+    ]
+
     class TestColor(_message.Message):
         __slots__ = ["c", "f"]
         C_FIELD_NUMBER: _ClassVar[int]
         F_FIELD_NUMBER: _ClassVar[int]
         c: _containers.RepeatedScalarFieldContainer[int]
         f: _containers.RepeatedScalarFieldContainer[float]
-        def __init__(self, c: _Optional[_Iterable[int]] = ..., f: _Optional[_Iterable[float]] = ...) -> None: ...
+        def __init__(
+            self,
+            c: _Optional[_Iterable[int]] = ...,
+            f: _Optional[_Iterable[float]] = ...,
+        ) -> None: ...
     MEASUREMENTS_FIELD_NUMBER: _ClassVar[int]
     TEST_COLORS_FIELD_NUMBER: _ClassVar[int]
     ORDER_FIELD_NUMBER: _ClassVar[int]
@@ -99,11 +159,27 @@ class MeasurementList(_message.Message):
     SOFTWARE_FIELD_NUMBER: _ClassVar[int]
     ANCILLARY_FIELD_NUMBER: _ClassVar[int]
     measurements: _containers.RepeatedCompositeFieldContainer[Measurement]
-    test_colors: _containers.RepeatedCompositeFieldContainer[MeasurementList.TestColor]
+    test_colors: _containers.RepeatedCompositeFieldContainer[
+        MeasurementList.TestColor
+    ]
     order: _containers.RepeatedScalarFieldContainer[int]
     notes: str
     author: str
     location: str
     software: str
     ancillary: bytes
-    def __init__(self, measurements: _Optional[_Iterable[_Union[Measurement, _Mapping]]] = ..., test_colors: _Optional[_Iterable[_Union[MeasurementList.TestColor, _Mapping]]] = ..., order: _Optional[_Iterable[int]] = ..., notes: _Optional[str] = ..., author: _Optional[str] = ..., location: _Optional[str] = ..., software: _Optional[str] = ..., ancillary: _Optional[bytes] = ...) -> None: ...
+    def __init__(
+        self,
+        measurements: _Optional[
+            _Iterable[_Union[Measurement, _Mapping]]
+        ] = ...,
+        test_colors: _Optional[
+            _Iterable[_Union[MeasurementList.TestColor, _Mapping]]
+        ] = ...,
+        order: _Optional[_Iterable[int]] = ...,
+        notes: _Optional[str] = ...,
+        author: _Optional[str] = ...,
+        location: _Optional[str] = ...,
+        software: _Optional[str] = ...,
+        ancillary: _Optional[bytes] = ...,
+    ) -> None: ...

@@ -1,9 +1,8 @@
 ## Example 2, connect to CRSpectrometer
-from matplotlib import pyplot as plt
+from collections.abc import Mapping
 
-from specio.ColorimetryResearch import CRSpectrometer, MeasurementSpeed
 from colour.plotting import plot_single_sd
-from specio.ColorimetryResearch import CRSpectrometer
+from specio.ColorimetryResearch import CRSpectrometer, MeasurementSpeed
 from specio.measurement import Measurement
 
 # Auto Discovery supported on MacOS
@@ -20,5 +19,5 @@ print(m)
 #     CCT: 4520 ± 0.01073
 #     Dominant WL: 571.0
 
-settings = dict(legend=False)
+settings: Mapping = {"legend": False}
 (fig, ax) = plot_single_sd(m.spd, **settings)

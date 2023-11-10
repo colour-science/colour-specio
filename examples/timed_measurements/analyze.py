@@ -1,14 +1,12 @@
-from matplotlib import pyplot as plt
 import numpy as np
-
 from colour import (
     UCS_to_uv,
     XYZ_to_UCS,
 )
-
 from colour.plotting import (
     plot_planckian_locus_in_chromaticity_diagram_CIE1960UCS,
 )
+from matplotlib import pyplot as plt
 
 from specio.io.io import load_measurements
 
@@ -20,7 +18,11 @@ XYZ = np.array([m.XYZ for m in measurements])
 xy = UCS_to_uv(XYZ_to_UCS(XYZ))
 
 # Plotting
-fig, ax = plot_planckian_locus_in_chromaticity_diagram_CIE1960UCS("", standalone=False)
-ax.plot(xy[:, 0], xy[:, 1], markersize=4, color=[0, 0, 0], marker=".", linestyle="")
+fig, ax = plot_planckian_locus_in_chromaticity_diagram_CIE1960UCS(
+    "", standalone=False
+)
+ax.plot(
+    xy[:, 0], xy[:, 1], markersize=4, color=[0, 0, 0], marker=".", linestyle=""
+)
 
 plt.show()
