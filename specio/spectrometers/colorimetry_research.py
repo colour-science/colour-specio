@@ -9,6 +9,7 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
+from functools import cached_property
 from types import MappingProxyType
 from typing import final
 
@@ -225,10 +226,10 @@ class CRSpectrometer(SpecRadiometer):
                 device = p.device  # type: ignore
                 sp = serial.Serial(device, **cls.CR300_SERIAL_KWARGS)
                 sp.read_all()
-                sp.write(b"RM Model\n")
+                sp.write(b"RC Model\n")
 
                 response = sp.readline()
-                if response.startswith(b"OK:0:RM Model"):
+                if response.startswith(b"OK:0:RC Model"):
                     sp.close()
                     cr = CRSpectrometer(device)
                     return cr
@@ -318,6 +319,18 @@ class CRSpectrometer(SpecRadiometer):
         return self._sn
 
     @property
+    def ExposureMultiplier(self) -> int:
+        if not hasattr(self, "_ExposureX"):
+            response = self.__write_cmd("RM ExposureX")
+            self._ExposureX = int(response.arguments[0])
+        return self._ExposureX
+
+    @ExposureMultiplier.setter
+    def ExposureMultiplier(self, multiplier: int) -> None:
+        self.__write_cmd(f"SM ExposureX {multiplier:d}")
+        del self._ExposureX
+
+    @cached_property
     def model(self) -> str:
         """The model name
 
@@ -325,10 +338,8 @@ class CRSpectrometer(SpecRadiometer):
         -------
         str
         """
-        if not hasattr(self, "_model") or self._model is None:
-            response = self.__write_cmd("RC Model")
-            self._model = response.arguments[0]
-        return self._model
+        response = self.__write_cmd("RC Model")
+        return response.arguments[0]
 
     @property
     def instrument_type(self):
@@ -419,9 +430,16 @@ class CRSpectrometer(SpecRadiometer):
         response = self.__write_cmd("RM Spectrum")
 
         args = response.arguments[0].split(",")
-        shape = SpectralShape(
-            start=float(args[0]), end=float(args[1]), interval=float(args[2])
-        )
+        if float(args[1]) != 0:
+            shape = SpectralShape(
+                start=float(args[0]),
+                end=float(args[1]),
+                interval=float(args[2]),
+            )
+        elif self.model == "CR-300":
+            shape = SpectralShape(380, 780, 1)
+        elif self.model == "CR-250":
+            shape = SpectralShape(380, 780, 4)
 
         data = self._port.readall()
         data = [float(d) for d in data.decode().splitlines()]
