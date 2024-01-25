@@ -39,7 +39,6 @@ def _config__specio_logger() -> None:
     )
 
     log.addHandler(stream_handler)
-    log.setLevel("DEBUG")
 
 
 _config__specio_logger()
