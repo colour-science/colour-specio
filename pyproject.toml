@@ -13,7 +13,7 @@ include = ["LICENSE"]
 
 
 [tool.poetry.dependencies]
-python = "^3.10,<3.12"
+python = "^3.10,<3.13"
 colour-science = "^0.4.2"
 numpy = "^1.23.1"
 pyserial = "^3.5"
