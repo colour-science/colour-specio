@@ -4,22 +4,24 @@ Specio
 Provides support for interacting with various hardware spectrometers.
 """
 __version__ = "0.2.9"
+__author__ = "Tucker Downs"
+__copyright__ = "Copyright 2022 Specio Developers"
+__license__ = (
+    "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+)
+__maintainer__ = "Tucker Downs"
+__email__ = "tucker@tjdcs.dev"
+__status__ = "Development"
+
 
 from .measurement import Measurement, RawMeasurement
-from .spectrometer import SpecRadiometer
+from .spectrometers.common import VirtualSpectrometer
 
 __all__ = [
     "Measurement",
     "RawMeasurement",
-    "SpecRadiometer",
+    "VirtualSpectrometer",
 ]
-
-__author__ = "Tucker Downs"
-__copyright__ = "Copyright 2022 Specio Developers"
-__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
-__maintainer__ = "Tucker Downs"
-__email__ = "tucker@tjdcs.dev"
-__status__ = "Development"
 
 
 def _config__specio_logger() -> None:
@@ -37,7 +39,6 @@ def _config__specio_logger() -> None:
     )
 
     log.addHandler(stream_handler)
-    log.setLevel("DEBUG")
 
 
 _config__specio_logger()

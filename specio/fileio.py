@@ -12,7 +12,9 @@ from specio.protobuf import measurements_pb2
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
-__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+__license__ = (
+    "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+)
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
@@ -30,19 +32,26 @@ class MeasurementList_Notes:
 class MeasurementList:
     test_colors: ndarray
     order: list[int]
-    measurements: npt.NDArray = field(default_factory=lambda: np.zeros(shape=(0, 0)))
-    metadata: MeasurementList_Notes = field(default_factory=MeasurementList_Notes)
+    measurements: npt.NDArray = field(
+        default_factory=lambda: np.zeros(shape=(0, 0))
+    )
+    metadata: MeasurementList_Notes = field(
+        default_factory=MeasurementList_Notes
+    )
 
     @property
     def shortname(self) -> str:
         if self.metadata.notes is None or self.metadata.notes == "":
-            spds = MultiSpectralDistributions([m.spd for m in self.measurements])
-            return xxhash.xxh32_hexdigest(np.ascontiguousarray(spds.values).data)
+            spds = MultiSpectralDistributions(
+                [m.spd for m in self.measurements]
+            )
+            return xxhash.xxh32_hexdigest(
+                np.ascontiguousarray(spds.values).data
+            )
         return self.metadata.notes
 
     def __repr__(self) -> str:
         return f"MeasurementList - {self.shortname}"
-
 
 
 def save_measurements(
@@ -59,7 +68,7 @@ def save_measurements(
     pbuf = measurements_pb2.MeasurementList()
 
     for m in measurements:
-        m_pbuf = cast(measurements_pb2.Measurement, m.to_buffer(return_pb=True))
+        m_pbuf = m.to_buffer()
         pbuf.measurements.append(m_pbuf)
 
     if notes.notes:
@@ -100,7 +109,7 @@ def save_measurements(
 
 
 def load_measurements(file: str | Path) -> MeasurementList:
-    if issubclass(type(file), Path):
+    if isinstance(file, Path):
         file = str(file)
 
     data_string: bytes
@@ -131,41 +140,3 @@ def load_measurements(file: str | Path) -> MeasurementList:
             pbuf.notes, pbuf.author, pbuf.location, pbuf.software
         ),
     )
-
-
-if __name__ == "__main__":
-    from time import time
-
-    def timer_func(func):
-        # This function shows the execution time of
-        # the function object passed
-        def wrap_func(*args, **kwargs):
-            t1 = time()
-            result = func(*args, **kwargs)
-            t2 = time()
-            print(f"Function {func.__name__!r} executed in {(t2-t1):.4f}s")
-            return result
-
-        return wrap_func
-
-    measures = []
-    for i in range(100):
-        measures.append(Measurement())
-
-    file = "/Users/tucker/Downloads/test"
-
-    @timer_func
-    def time_save():
-        save_measurements(
-            file=file,
-            measurements=measures,
-            notes=MeasurementList_Notes("Hello", "World", "Burbank"),
-        )
-
-    time_save()
-
-    @timer_func
-    def time_read():
-        return load_measurements(file=file)
-
-    m = time_read()

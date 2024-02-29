@@ -1,9 +1,11 @@
+"""
+Data classes for the creation and manipulation of `specio.Measurement` data.
+"""
+
 import textwrap
 from dataclasses import dataclass
-from datetime import datetime
-
+from datetime import UTC, datetime
 from typing import Any, Self, cast
-import colour
 
 import numpy as np
 from colour import (
@@ -14,12 +16,15 @@ from colour import (
     uv_to_CCT,
     xy_to_UCS_uv,
 )
+
 from specio import protobuf
 from specio.utility import buffer_to_sd, sd_to_buffer
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
-__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+__license__ = (
+    "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+)
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
@@ -27,6 +32,11 @@ __status__ = "Development"
 
 @dataclass
 class RawMeasurement:
+    """
+    A measurement only containing the bare minimum amount of collected data.
+    Expected to be further transformed into `specio.Measurement`.
+    """
+
     spd: SpectralDistribution
     exposure: float
     spectrometer_id: str
@@ -34,9 +44,15 @@ class RawMeasurement:
 
 
 class Measurement:
+    """
+    The basic measurement structure for specio. It contains
+    `colour.SpectralDistribution` and several convenience calculations. It an
+    also be converted to a readable string for logging.
+    """
+
     def _from_buffer(self, data: bytes | protobuf.Measurement):
         m: protobuf.Measurement
-        if type(data) == bytes:
+        if isinstance(data, bytes):
             m = protobuf.Measurement()
             m.ParseFromString(data)
         else:
@@ -50,10 +66,32 @@ class Measurement:
         self.cct = m.cct.cct
         self.duv = m.cct.duv
         self.dominant_wl = m.dominant_wl
-        self.power = np.sum(self.spd.values)
+        self.power = self.spd.values.sum()
         self.time = datetime.fromisoformat(m.time.timestr)
 
-    def to_buffer(self, return_pb: bool = False) -> bytes | protobuf.Measurement:
+    def to_bytes(self) -> bytes:
+        """Return a serialized bytes array
+
+        Returns
+        -------
+        bytes
+            The object data serialized to binary by `protobuf.Measurement`
+        """
+        return self.to_buffer().SerializeToString()
+
+    def to_buffer(self) -> protobuf.Measurement:
+        """Convert this measurement to a protobuf buffer object.
+
+        See Also
+        --------
+        `Measurement.to_bytes`
+
+        Returns
+        -------
+        protobuf.Measurement
+            The protobuf object. This can be added to other protobuf structures
+            or serialized
+        """
         m = protobuf.Measurement()
         m.exposure = self.exposure
         m.dominant_wl = self.dominant_wl
@@ -63,7 +101,10 @@ class Measurement:
         m.time.timestr = self.time.isoformat()
 
         m.spd.CopyFrom(
-            cast(protobuf.SpectralDistribution, sd_to_buffer(self.spd, return_pb=True))  # type: ignore
+            cast(
+                protobuf.SpectralDistribution,
+                sd_to_buffer(self.spd, return_pb=True),
+            )
         )
 
         m.XYZ.X = self.XYZ[0]
@@ -76,30 +117,20 @@ class Measurement:
         m.cct.cct = self.cct
         m.cct.duv = self.duv
 
-        return m if return_pb else m.SerializeToString()
+        return m
 
     def __init__(
-        self,
-        raw_meas: (None | RawMeasurement | bytes | protobuf.Measurement) = None,
+        self, raw_meas: RawMeasurement | bytes | protobuf.Measurement
     ):
-        if type(raw_meas) is bytes or type(raw_meas) == protobuf.Measurement:
+        if isinstance(raw_meas, (bytes, protobuf.Measurement)):
             self._from_buffer(raw_meas)
             return
 
-        if raw_meas is None:
-            self.spd = colour.sd_multi_leds(
-                np.random.randint(400, 700, size=3), np.random.randint(40, 150, size=3)
-            )
-            self.spd.values /= 1000
-            self.exposure = 1
-            self.spectrometer_id = "Virtual Spectrometer"
-            self.anc_data = None
-        else:
-            raw_meas = cast(RawMeasurement, raw_meas)
-            self.spd = raw_meas.spd
-            self.exposure = raw_meas.exposure
-            self.spectrometer_id = raw_meas.spectrometer_id
-            self.anc_data = raw_meas.anc_data
+        raw_meas = cast(RawMeasurement, raw_meas)
+        self.spd = raw_meas.spd
+        self.exposure = raw_meas.exposure
+        self.spectrometer_id = raw_meas.spectrometer_id
+        self.anc_data = raw_meas.anc_data
 
         method = "ASTM E308"
         if self.spd.shape.interval not in [1, 5, 10, 20]:
@@ -110,11 +141,20 @@ class Measurement:
         _cct = uv_to_CCT(xy_to_UCS_uv(self.xy))
         self.cct: float = _cct[0]
         self.duv: float = _cct[1]
-        self.dominant_wl = float(dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0])
-        self.power = self.spd.values.sum()
-        self.time = datetime.now()
+        self.dominant_wl = float(
+            dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0]
+        )
+        self.power: float = np.asarray(self.spd.values).sum()
+        self.time = datetime.now(tz=UTC)
 
     def __str__(self) -> str:
+        """
+        Return printable string with interesting data for an observant reader.
+
+        Returns
+        -------
+        str
+        """
         return textwrap.dedent(
             f"""
             Spectral Measurement - {self.spectrometer_id}:
@@ -124,13 +164,37 @@ class Measurement:
                 CCT: {self.cct:.0f} ± {self.duv:.5f}
                 Dominant WL: {self.dominant_wl:.1f}
                 Exposure: {self.exposure:.3f}
-            """
+            """  # noqa: E501
         )
 
     def __repr__(self) -> str:
-        return f"Spectral Measurement - {self.spectrometer_id}, Time: {self.time}"
+        """Return a loggable 1-line string for some basic details for this
+        measurement.
+
+        Returns
+        -------
+        str
+        """
+
+        return f"Spectral Measurement - {self.spectrometer_id}, Time: {self.time}, XYZ = {self.XYZ}"  # noqa: E501
 
     def __eq__(self, other: Self) -> bool:
+        """Check equality to another `specio.measurement.Measurement.` Based on
+        multiple subfields.
+
+        True if "exposure", "spectrometer_id", "XYZ", "xy", "dominant_wl",
+        "power", "time", "cct", "duv" are all equal.
+
+        Parameters
+        ----------
+        other : Measurement
+            The object to compare to
+
+        Returns
+        -------
+        bool
+        """
+
         keys = [
             "spd",
             "exposure",
@@ -144,14 +208,4 @@ class Measurement:
             "duv",
         ]
         data = [getattr(self, k) == getattr(other, k) for k in keys]
-        for d in data:
-            if not np.all(d):
-                return False
-        return True
-
-
-if __name__ == "__main__":
-    m = Measurement()
-    str = m.to_buffer()
-    m2 = Measurement(str)
-    print(m2 == m)
+        return all(np.all(d) for d in data)

@@ -1,6 +1,7 @@
-from pathlib import Path
-from specio import fileio
 import os
+from pathlib import Path
+
+from specio import fileio
 
 os.chdir(Path(__file__).parent)
 

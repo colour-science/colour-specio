@@ -1,10 +1,10 @@
 import time
-from specio.ColorimetryResearch import CRSpectrometer
-from specio.ColorimetryResearch.CR_Definitions import MeasurementSpeed
 from datetime import datetime, timedelta
-from specio.io.io import MeasurementList_Notes, save_measurements
 
-cr = CRSpectrometer(speed=MeasurementSpeed.SLOW)
+import specio.spectrometers.colorimetry_research as cr
+
+meter = cr.CRSpectrometer.discover()
+meter.measurement_speed = cr.MeasurementSpeed.SLOW
 
 measurements = []
 
@@ -13,15 +13,19 @@ last_measurement = datetime.min
 
 measure_interval = timedelta(minutes=1)  # Measures at most once per interval
 
-file_name = "data/443_north_window_" + datetime.now().strftime("%Y_%m_%d_%H_%M")
+file_name = "data/443_north_window_" + datetime.now().strftime(
+    "%Y_%m_%d_%H_%M"
+)
 
 while True:
     try:
-        if (due := last_measurement + measure_interval) > (now := datetime.now()):
+        if (due := last_measurement + measure_interval) > (
+            now := datetime.now()
+        ):
             time.sleep((due - now).total_seconds())
 
         last_measurement = datetime.now()
-        measurements.append(cr.measure())
+        measurements.append(meter.measure())
 
         print(measurements[-1])
     except Exception as e:
@@ -34,6 +38,8 @@ while True:
             file_name,
             measurements=measurements,
             notes=MeasurementList_Notes(
-                author="Tucker Downs", location="443", notes="Direct Sky Measurement"
+                author="Tucker Downs",
+                location="443",
+                notes="Direct Sky Measurement",
             ),
         )
