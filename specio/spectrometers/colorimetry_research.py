@@ -169,7 +169,7 @@ class CommandError(Exception):
 @final
 class CRSpectrometer(SpecRadiometer):
     """Interface with a colorimetry research brand CR-250 or CR-300. Implements
-    the `colour_workbench.spectrometers.SpecRadiometer`
+    the `specio.spectrometers.SpecRadiometer`
 
     Raises
     ------
