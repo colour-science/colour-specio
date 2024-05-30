@@ -188,7 +188,7 @@ class CRSpectrometer(SpecRadiometer):
             "bytesize": 8,
             "parity": "N",
             "rtscts": True,
-            "timeout": 1,
+            "timeout": 0.001,
         }
     )
 
