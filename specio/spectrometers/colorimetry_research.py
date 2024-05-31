@@ -188,7 +188,7 @@ class CRSpectrometer(SpecRadiometer):
             "bytesize": 8,
             "parity": "N",
             "rtscts": True,
-            "timeout": 0.001,
+            "timeout": 0.01,
         }
     )
 
@@ -228,10 +228,10 @@ class CRSpectrometer(SpecRadiometer):
                 device = p.device  # type: ignore
                 sp = serial.Serial(device, **cls.CR300_SERIAL_KWARGS)
                 sp.read_all()
-                sp.write(b"RC Model\n")
+                sp.write(b"RC InstrumentType\n")
 
                 response = sp.readline()
-                if response.startswith(b"OK:0:RC Model"):
+                if response.startswith(b"OK:0:RC InstrumentType:2"):
                     sp.close()
                     cr = CRSpectrometer(device)
                     return cr

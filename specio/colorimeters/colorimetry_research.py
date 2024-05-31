@@ -163,7 +163,7 @@ class CRColorimeter(Colorimeter):
             "bytesize": 8,
             "parity": "N",
             "rtscts": True,
-            "timeout": 0.001,
+            "timeout": 0.01,
         }
     )
 
