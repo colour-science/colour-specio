@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
 from types import MappingProxyType
-from typing import final
+from typing import Self, final
 
 import serial.tools.list_ports
 from aenum import MultiValueEnum
@@ -51,10 +51,10 @@ class MeasurementSpeed(MultiValueEnum):
     Controls the measurement speed when the CR Exposure Mode is set to "auto"
     """
 
-    SLOW = 0, "0", "slow"
-    NORMAL = 1, "1", "normal"
-    FAST = 2, "2", "fast"
-    FAST_2X = 3, "3", "2x fast"
+    SLOW: Self = 0, "0", "slow"  # type: ignore
+    NORMAL: Self = 1, "1", "normal"  # type: ignore
+    FAST: Self = 2, "2", "fast"  # type: ignore
+    FAST_2X: Self = 3, "3", "2x fast"  # type: ignore
 
 
 class Model(Enum):
@@ -248,7 +248,7 @@ class CRSpectrometer(SpecRadiometer):
     def __init__(
         self,
         port: str,
-        speed: MeasurementSpeed = MeasurementSpeed.NORMAL,  # type: ignore
+        speed: MeasurementSpeed = MeasurementSpeed.NORMAL,
     ):
         """
         Construct CR Controller Obj

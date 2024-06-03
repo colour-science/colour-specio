@@ -2,11 +2,13 @@
 from collections.abc import Mapping
 
 from colour.plotting import plot_single_sd
+
 from specio.ColorimetryResearch import CRSpectrometer, MeasurementSpeed
 from specio.measurement import Measurement
 
 # Auto Discovery supported on MacOS
-meter = CRSpectrometer(speed=MeasurementSpeed.FAST_2X)
+meter = CRSpectrometer.discover()
+meter.speed = MeasurementSpeed.FAST_2X
 # meter = CRSpectrometer(device="COM4", speed=MeasurementSpeed.FAST_2X)
 
 # Initiate Measurement
