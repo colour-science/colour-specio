@@ -7,9 +7,9 @@ from ctypes import ArgumentError
 from typing import final
 
 import numpy as np
-from colour import SpectralDistribution, sd_multi_leds
+from colour import SpectralDistribution, SpragueInterpolator, sd_multi_leds
 
-from specio.measurement import Measurement, RawMeasurement
+from specio.measurement import RawMeasurement, SPDMeasurement
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -88,7 +88,7 @@ class SpecRadiometer(ABC):
         """
         return f"{self.model} - {self.serial_number}"
 
-    def measure(self, repetitions: int = 1) -> Measurement:
+    def measure(self, repetitions: int = 1) -> SPDMeasurement:
         """Trigger and collect one measurement from the LED tile
 
         Returns
@@ -106,14 +106,14 @@ class SpecRadiometer(ABC):
             _rm += [self._raw_measure()]
 
         if len(_rm) == 1:
-            return Measurement(_rm[0])
+            return SPDMeasurement.from_raw(_rm[0])
 
         spd_values = np.asarray([m.spd.values for m in _rm]).mean(axis=0)
         spd = SpectralDistribution(data=spd_values, domain=_rm[0].spd.domain)
         exposure = np.mean([m.exposure for m in _rm]).item()
         id = _rm[0].spectrometer_id
 
-        return Measurement(
+        return SPDMeasurement.from_raw(
             RawMeasurement(spd=spd, exposure=exposure, spectrometer_id=id)
         )
 
@@ -175,6 +175,7 @@ class VirtualSpectrometer(SpecRadiometer):
             half_spectral_widths=widths / 2,
             peak_power_ratios=powers,
         )
+        spd.interpolator = SpragueInterpolator
 
         _measurement = RawMeasurement(
             spd=spd,

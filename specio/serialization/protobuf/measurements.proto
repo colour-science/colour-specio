@@ -36,7 +36,18 @@ message Timestamp {
     string timestr = 1;
 }
 
-message Measurement {
+message Colorimeter_Measurement {
+    XYZ_value XYZ = 1;
+    xy_value xy = 2;
+    cct_value cct = 5;
+    double dominant_wl = 6;
+    Timestamp time = 7;
+    
+    double exposure = 16;
+    string colorimeter_id = 17;
+}
+
+message SPD_Measurement {
     SpectralDistribution spd = 1;
     double exposure = 2;
     XYZ_value XYZ = 3;
@@ -51,12 +62,15 @@ message Measurement {
     reserved 16;
 }
 
-message MeasurementList {
-    repeated Measurement measurements = 1;
+message Measurement_List {
+    repeated SPD_Measurement spd_measurements = 1;
+    repeated Colorimeter_Measurement xyz_measurements=4;
+    
     message TestColor {
         repeated uint32 c = 1;
         repeated float f = 2;
     }
+    
     repeated TestColor test_colors = 3;
 
     repeated int32 order = 2;

@@ -3,13 +3,11 @@ from typing import cast
 import numpy as np
 from colour import SpectralDistribution, SpectralShape
 
-from specio import protobuf
+from specio.serialization.protobuf import measurements_pb2
 
 
-def sd_shape_to_buffer(
-    shape: SpectralShape, return_pb: bool = False
-) -> bytes | protobuf.SpectralShape:
-    """Converts SpectralShape to buffer. Defaults to bytes but may optionally
+def sd_shape_to_buffer(shape: SpectralShape) -> measurements_pb2.SpectralShape:
+    """Convert SpectralShape to buffer. Defaults to bytes but may optionally
     return protobuf object
 
     Parameters
@@ -28,16 +26,16 @@ def sd_shape_to_buffer(
     --------
     `buffer_to_sd_shape`
     """
-    pb = protobuf.SpectralShape()
+    pb = measurements_pb2.SpectralShape()
     pb.start = shape.start
     pb.end = shape.end
     pb.step = shape.interval
 
-    return pb if return_pb else pb.SerializeToString()
+    return pb
 
 
 def buffer_to_sd_shape(
-    buffer: bytes | protobuf.SpectralShape,
+    buffer: bytes | measurements_pb2.SpectralShape,
 ) -> SpectralShape:
     """
     Convert buffer back to `SpectralDistribution`
@@ -58,17 +56,17 @@ def buffer_to_sd_shape(
     """
 
     if isinstance(buffer, bytes):
-        pb = protobuf.SpectralShape()
-        pb.ParseFromString(buffer)
-        buffer = pb
-    pb = cast(protobuf.SpectralShape, buffer)
+        buffer = measurements_pb2.SpectralShape.FromString(buffer)
+    buffer = cast(measurements_pb2.SpectralShape, buffer)
 
-    return SpectralShape(start=pb.start, end=pb.end, interval=pb.step)
+    return SpectralShape(
+        start=buffer.start, end=buffer.end, interval=buffer.step
+    )
 
 
 def sd_to_buffer(
     sd: SpectralDistribution, return_pb: bool = False
-) -> bytes | protobuf.SpectralDistribution:
+) -> bytes | measurements_pb2.SpectralDistribution:
     """Convert a `SpectralDistribution` object to a buffer.
 
     Parameters
@@ -85,15 +83,10 @@ def sd_to_buffer(
         object via `specio.io.sd_from_buffer`
     """
 
-    pb = protobuf.SpectralDistribution()
+    pb = measurements_pb2.SpectralDistribution()
     pb.name = sd.name
 
-    pb.shape.CopyFrom(
-        cast(
-            protobuf.SpectralShape,
-            sd_shape_to_buffer(sd.shape, return_pb=True),
-        )
-    )
+    pb.shape = sd_shape_to_buffer(sd.shape)
 
     pb.values.extend(sd.values.astype(np.double).tolist())
     pb.name = sd.name
@@ -102,7 +95,7 @@ def sd_to_buffer(
 
 
 def buffer_to_sd(
-    buffer: bytes | protobuf.SpectralDistribution,
+    buffer: bytes | measurements_pb2.SpectralDistribution,
 ) -> SpectralDistribution:
     """Try to convert a byte buffer to SpectralDistribution
 
@@ -123,10 +116,10 @@ def buffer_to_sd(
     """
 
     if isinstance(buffer, bytes):
-        pb = protobuf.SpectralDistribution()
+        pb = measurements_pb2.SpectralDistribution()
         pb.ParseFromString(buffer)
         buffer = pb
-    pb = cast(protobuf.SpectralDistribution, buffer)
+    pb = cast(measurements_pb2.SpectralDistribution, buffer)
 
     shape = buffer_to_sd_shape(pb.shape)
     values = pb.values if len(pb.values) > 0 else pb.values_old
@@ -144,14 +137,3 @@ __all__ = [
     "sd_shape_to_buffer",
     "buffer_to_sd_shape",
 ]
-
-if __name__ == "__main__":
-    wl = np.arange(300, 700, 20)
-    data = np.random.random(size=wl.shape)
-    sd = SpectralDistribution(domain=wl, data=data)
-
-    buffer = sd_to_buffer(sd)
-
-    new_sd = buffer_to_sd(buffer)
-
-    assert sd == new_sd

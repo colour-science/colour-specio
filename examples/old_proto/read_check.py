@@ -1,10 +1,8 @@
 import os
 from pathlib import Path
 
-from specio import fileio
+from specio.serialization import csmf
 
 os.chdir(Path(__file__).parent)
 
-data = fileio.load_measurements("ex_file.csmf")
-
-pass
+data = csmf.load_csmf_file("ex_file.csmf")

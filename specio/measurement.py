@@ -5,7 +5,7 @@ Data classes for the creation and manipulation of `specio.Measurement` data.
 import textwrap
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Self, cast
+from typing import Any, Self
 
 import numpy as np
 from colour import (
@@ -16,9 +16,6 @@ from colour import (
     uv_to_CCT,
     xy_to_UCS_uv,
 )
-
-from specio import protobuf
-from specio.utility import buffer_to_sd, sd_to_buffer
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -40,97 +37,36 @@ class RawMeasurement:
     spd: SpectralDistribution
     exposure: float
     spectrometer_id: str
-    anc_data: None | Any = None
+    anc_data: Any = None
 
 
-class Measurement:
+class SPDMeasurement:
     """
     The basic measurement structure for specio. It contains
     `colour.SpectralDistribution` and several convenience calculations. It an
     also be converted to a readable string for logging.
     """
 
-    def _from_buffer(self, data: bytes | protobuf.Measurement):
-        m: protobuf.Measurement
-        if isinstance(data, bytes):
-            m = protobuf.Measurement()
-            m.ParseFromString(data)
-        else:
-            m = cast(protobuf.Measurement, data)
-
-        self.spd = buffer_to_sd(m.spd)
-        self.exposure = m.exposure
-        self.spectrometer_id = m.spectrometer_id
-        self.XYZ = np.array([m.XYZ.X, m.XYZ.Y, m.XYZ.Z])
-        self.xy = np.array([m.xy.x, m.xy.y])
-        self.cct = m.cct.cct
-        self.duv = m.cct.duv
-        self.dominant_wl = m.dominant_wl
-        self.power = self.spd.values.sum()
-        self.time = datetime.fromisoformat(m.time.timestr)
-
-    def to_bytes(self) -> bytes:
-        """Return a serialized bytes array
-
-        Returns
-        -------
-        bytes
-            The object data serialized to binary by `protobuf.Measurement`
-        """
-        return self.to_buffer().SerializeToString()
-
-    def to_buffer(self) -> protobuf.Measurement:
-        """Convert this measurement to a protobuf buffer object.
-
-        See Also
-        --------
-        `Measurement.to_bytes`
-
-        Returns
-        -------
-        protobuf.Measurement
-            The protobuf object. This can be added to other protobuf structures
-            or serialized
-        """
-        m = protobuf.Measurement()
-        m.exposure = self.exposure
-        m.dominant_wl = self.dominant_wl
-        m.power = self.power
-        m.spectrometer_id = self.spectrometer_id
-
-        m.time.timestr = self.time.isoformat()
-
-        m.spd.CopyFrom(
-            cast(
-                protobuf.SpectralDistribution,
-                sd_to_buffer(self.spd, return_pb=True),
-            )
+    @staticmethod
+    def from_raw(raw: RawMeasurement) -> "SPDMeasurement":
+        return SPDMeasurement(
+            spd=raw.spd,
+            exposure=raw.exposure,
+            spectrometer_id=raw.spectrometer_id,
+            ancillary=raw.anc_data,
         )
 
-        m.XYZ.X = self.XYZ[0]
-        m.XYZ.Y = self.XYZ[1]
-        m.XYZ.Z = self.XYZ[2]
-
-        m.xy.x = self.xy[0]
-        m.xy.y = self.xy[1]
-
-        m.cct.cct = self.cct
-        m.cct.duv = self.duv
-
-        return m
-
     def __init__(
-        self, raw_meas: RawMeasurement | bytes | protobuf.Measurement
+        self,
+        spd: SpectralDistribution,
+        exposure: float,
+        spectrometer_id: str,
+        ancillary: Any = None,
     ):
-        if isinstance(raw_meas, (bytes, protobuf.Measurement)):
-            self._from_buffer(raw_meas)
-            return
-
-        raw_meas = cast(RawMeasurement, raw_meas)
-        self.spd = raw_meas.spd
-        self.exposure = raw_meas.exposure
-        self.spectrometer_id = raw_meas.spectrometer_id
-        self.anc_data = raw_meas.anc_data
+        self.spd = spd
+        self.exposure = exposure
+        self.spectrometer_id = spectrometer_id
+        self.anc_data = ancillary
 
         method = "ASTM E308"
         if self.spd.shape.interval not in [1, 5, 10, 20]:

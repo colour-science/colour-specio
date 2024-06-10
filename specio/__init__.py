@@ -3,6 +3,7 @@ Specio
 ======
 Provides support for interacting with various hardware spectrometers.
 """
+
 __version__ = "0.2.9"
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -14,11 +15,11 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 
-from .measurement import Measurement, RawMeasurement
+from .measurement import RawMeasurement, SPDMeasurement
 from .spectrometers.common import VirtualSpectrometer
 
 __all__ = [
-    "Measurement",
+    "SPDMeasurement",
     "RawMeasurement",
     "VirtualSpectrometer",
 ]
