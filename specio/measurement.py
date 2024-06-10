@@ -47,9 +47,9 @@ class SPDMeasurement:
     also be converted to a readable string for logging.
     """
 
-    @staticmethod
-    def from_raw(raw: RawMeasurement) -> "SPDMeasurement":
-        return SPDMeasurement(
+    @classmethod
+    def from_raw(cls, raw: RawMeasurement) -> "SPDMeasurement":
+        return cls(
             spd=raw.spd,
             exposure=raw.exposure,
             spectrometer_id=raw.spectrometer_id,
@@ -62,6 +62,7 @@ class SPDMeasurement:
         exposure: float,
         spectrometer_id: str,
         ancillary: Any = None,
+        no_compute: bool = False,
     ):
         self.spd = spd
         self.exposure = exposure
@@ -72,16 +73,17 @@ class SPDMeasurement:
         if self.spd.shape.interval not in [1, 5, 10, 20]:
             method = "Integration"
 
-        self.XYZ = sd_to_XYZ(self.spd, k=683, method=method)
-        self.xy = XYZ_to_xy(self.XYZ)
-        _cct = uv_to_CCT(xy_to_UCS_uv(self.xy))
-        self.cct: float = _cct[0]
-        self.duv: float = _cct[1]
-        self.dominant_wl = float(
-            dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0]
-        )
-        self.power: float = np.asarray(self.spd.values).sum()
-        self.time = datetime.now(tz=UTC)
+        if not no_compute:
+            self.XYZ = sd_to_XYZ(self.spd, k=683, method=method)
+            self.xy = XYZ_to_xy(self.XYZ)
+            _cct = uv_to_CCT(xy_to_UCS_uv(self.xy))
+            self.cct: float = _cct[0]
+            self.duv: float = _cct[1]
+            self.dominant_wl = float(
+                dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0]
+            )
+            self.power: float = np.asarray(self.spd.values).sum()
+            self.time = datetime.now(tz=UTC)
 
     def __str__(self) -> str:
         """

@@ -145,7 +145,24 @@ def save_csmf_file(
         f.write(data_string)
 
 
-def load_csmf_file(file: str | Path) -> Measurement_List:
+def load_csmf_file(
+    file: str | Path, recompute: bool = False
+) -> Measurement_List:
+    """Load measurement list data from a file
+
+    Parameters
+    ----------
+    file : str | Path
+        The csmf file to read
+    recompute : bool, optional
+        Recomputes derived data from the spd data, i.e. XYZ, CCT, etc... Very
+        slow for large files. by default False
+
+    Returns
+    -------
+    Measurement_List
+        Measurement Data
+    """
     if isinstance(file, str):
         file = Path(file)
     file = file.with_suffix(".csmf")
@@ -159,7 +176,9 @@ def load_csmf_file(file: str | Path) -> Measurement_List:
 
     measurements = []
     for mbuf in pbuf.spd_measurements:
-        measurements.append(spd_measurement_from_bytes(mbuf))
+        measurements.append(
+            spd_measurement_from_bytes(mbuf, recompute=recompute)
+        )
     measurements = np.asarray(measurements)
 
     tcs = []

@@ -111,7 +111,9 @@ def spd_measurement_from_bytes(
         ),
     )
 
-    ret = SPDMeasurement(spd, buffer.exposure, buffer.spectrometer_id)
+    ret = SPDMeasurement(
+        spd, buffer.exposure, buffer.spectrometer_id, no_compute=not recompute
+    )
     if not recompute:
         ret.cct = buffer.cct.cct
         ret.duv = buffer.cct.duv
