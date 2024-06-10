@@ -17,7 +17,8 @@ import serial
 from colour import SpectralDistribution, SpectralShape
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
-from specio.measurement import RawMeasurement
+
+from specio.measurement import RawSPDMeasurement
 from specio.spectrometers.common import SpecRadiometer
 
 __all__ = []
@@ -374,7 +375,7 @@ class CS2000(SpecRadiometer):
     def speedmode(self, cr: SpeedModeSetting):
         code, _ = self._write_cmd(b"SPMS," + bytes(cr))
 
-    def _raw_measure(self) -> RawMeasurement:
+    def _raw_measure(self) -> RawSPDMeasurement:
         # Additional timeout recommended by KM manual
         response = self._write_cmd("MEAS,1", time_out=10)
         wait_time = int(response.data[0])  # KM estimated measurement time
@@ -406,6 +407,6 @@ class CS2000(SpecRadiometer):
         spd = SpectralDistribution(spd_data, SpectralShape(380, 780, 1))
         exposure = float(conditions[2]) * 1e-6
 
-        return RawMeasurement(
+        return RawSPDMeasurement(
             spd=spd, exposure=exposure, spectrometer_id=self.readable_id
         )

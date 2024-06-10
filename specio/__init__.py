@@ -15,12 +15,12 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 
-from .measurement import RawMeasurement, SPDMeasurement
+from .measurement import RawSPDMeasurement, SPDMeasurement
 from .spectrometers.common import VirtualSpectrometer
 
 __all__ = [
     "SPDMeasurement",
-    "RawMeasurement",
+    "RawSPDMeasurement",
     "VirtualSpectrometer",
 ]
 

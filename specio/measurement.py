@@ -28,7 +28,7 @@ __status__ = "Development"
 
 
 @dataclass
-class RawMeasurement:
+class RawSPDMeasurement:
     """
     A measurement only containing the bare minimum amount of collected data.
     Expected to be further transformed into `specio.Measurement`.
@@ -48,7 +48,7 @@ class SPDMeasurement:
     """
 
     @classmethod
-    def from_raw(cls, raw: RawMeasurement) -> "SPDMeasurement":
+    def from_raw(cls, raw: RawSPDMeasurement) -> "SPDMeasurement":
         return cls(
             spd=raw.spd,
             exposure=raw.exposure,

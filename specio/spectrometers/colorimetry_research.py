@@ -18,7 +18,7 @@ import serial.tools.list_ports
 from aenum import MultiValueEnum
 from colour import SpectralDistribution, SpectralShape
 
-from specio.measurement import RawMeasurement
+from specio.measurement import RawSPDMeasurement
 from specio.spectrometers.common import SpecRadiometer
 
 __author__ = "Tucker Downs"
@@ -424,7 +424,7 @@ class CRSpectrometer(SpecRadiometer):
             arguments=args,
         )
 
-    def _raw_measure(self) -> RawMeasurement:
+    def _raw_measure(self) -> RawSPDMeasurement:
         """
         Make spectral measurement with CR
         """
@@ -450,7 +450,7 @@ class CRSpectrometer(SpecRadiometer):
         exMatch = re.match(r"\d*\.?\d*", exposure)
         exposure = float(exMatch.group()) / 1000 if exMatch else -1
 
-        return RawMeasurement(
+        return RawSPDMeasurement(
             spd=SpectralDistribution(data=data, domain=shape),
             spectrometer_id=self.readable_id,
             exposure=exposure,
