@@ -287,7 +287,6 @@ class CRColorimeter(Colorimeter):
         available_filters = self.filters_list
         response = self.__write_cmd("RS Filter")
         arguments = response.arguments[0].split(",")
-        return
 
     @cached_property
     def model(self) -> str:
@@ -397,8 +396,3 @@ class CRColorimeter(Colorimeter):
             device_id=self.readable_id,
             exposure=exposure,
         )
-
-
-if __name__ == "__main__":
-    m = CRColorimeter("/dev/cu.usbmodemA001231")
-    print(m.current_filters)

@@ -2,14 +2,21 @@
 Define basic spectrometer interfaces
 """
 
+import datetime
+import textwrap
 from abc import ABC, abstractmethod
 from ctypes import ArgumentError
-from typing import final
+from dataclasses import dataclass
+from functools import cached_property
+from typing import Any, final
 
 import numpy as np
 from colour import SpectralDistribution, SpragueInterpolator, sd_multi_leds
-
-from specio.measurement import RawSPDMeasurement, SPDMeasurement
+from colour.colorimetry.dominant import dominant_wavelength
+from colour.colorimetry.tristimulus_values import sd_to_XYZ
+from colour.models.cie_ucs import xy_to_UCS_uv
+from colour.models.cie_xyy import XYZ_to_xy
+from colour.temperature import uv_to_CCT
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -19,6 +26,128 @@ __license__ = (
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
+
+
+@dataclass
+class RawSPDMeasurement:
+    """
+    A measurement only containing the bare minimum amount of collected data.
+    Expected to be further transformed into `specio.spectrometers.common.Measurement`.
+    """
+
+    spd: SpectralDistribution
+    exposure: float
+    spectrometer_id: str
+    anc_data: Any = None
+
+
+class SPDMeasurement:
+    """
+    The basic measurement structure for specio. It contains
+    `colour.SpectralDistribution` and several convenience calculations. It an
+    also be converted to a readable string for logging.
+    """
+
+    @classmethod
+    def from_raw(cls, raw: RawSPDMeasurement) -> "SPDMeasurement":
+        return cls(
+            spd=raw.spd,
+            exposure=raw.exposure,
+            spectrometer_id=raw.spectrometer_id,
+            ancillary=raw.anc_data,
+        )
+
+    def __init__(
+        self,
+        spd: SpectralDistribution,
+        exposure: float,
+        spectrometer_id: str,
+        ancillary: Any = None,
+        no_compute: bool = False,
+    ):
+        self.spd = spd
+        self.exposure = exposure
+        self.spectrometer_id = spectrometer_id
+        self.anc_data = ancillary
+
+        method = "ASTM E308"
+        if self.spd.shape.interval not in [1, 5, 10, 20]:
+            method = "Integration"
+
+        if not no_compute:
+            self.XYZ = sd_to_XYZ(self.spd, k=683, method=method)
+            self.xy = XYZ_to_xy(self.XYZ)
+            _cct = uv_to_CCT(xy_to_UCS_uv(self.xy))
+            self.cct: float = _cct[0]
+            self.duv: float = _cct[1]
+            self.dominant_wl = float(
+                dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0]
+            )
+            self.power: float = np.asarray(self.spd.values).sum()
+            self.time = datetime.datetime.now(tz=datetime.UTC)
+
+    def __str__(self) -> str:
+        """
+        Return printable string with interesting data for an observant reader.
+
+        Returns
+        -------
+        str
+        """
+        return textwrap.dedent(
+            f"""
+            Spectral Measurement - {self.spectrometer_id}:
+                time: {self.time}
+                XYZ: {np.array2string(self.XYZ, formatter={'float_kind':lambda x: "%.2f" % x})}
+                xy: {np.array2string(self.xy, formatter={'float_kind':lambda x: "%.4f" % x})}
+                CCT: {self.cct:.0f} ± {self.duv:.5f}
+                Dominant WL: {self.dominant_wl:.1f}
+                Exposure: {self.exposure:.3f}
+            """  # noqa: E501
+        )
+
+    def __repr__(self) -> str:
+        """Return a loggable 1-line string for some basic details for this
+        measurement.
+
+        Returns
+        -------
+        str
+        """
+
+        return f"Spectral Measurement - {self.spectrometer_id}, Time: {self.time}, XYZ = {self.XYZ}"  # noqa: E501
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality to another `specio.spectrometers.common.Measurement.` Based on
+        multiple subfields.
+
+        True if "exposure", "spectrometer_id", "XYZ", "xy", "dominant_wl",
+        "power", "time", "cct", "duv" are all equal.
+
+        Parameters
+        ----------
+        other : Measurement
+            The object to compare to
+
+        Returns
+        -------
+        bool
+        """
+
+        keys = [
+            "spd",
+            "exposure",
+            "spectrometer_id",
+            "XYZ",
+            "xy",
+            "dominant_wl",
+            "power",
+            "time",
+            "cct",
+            "duv",
+        ]
+        data = [getattr(self, k) == getattr(other, k) for k in keys]
+        return all(np.all(d) for d in data)
 
 
 class SpecRadiometer(ABC):
@@ -51,7 +180,7 @@ class SpecRadiometer(ABC):
 
         ...
 
-    @property
+    @cached_property
     @abstractmethod
     def model(self) -> str:
         """The model name or identifier for the device
@@ -72,7 +201,7 @@ class SpecRadiometer(ABC):
         -------
         RawMeasurement
             A simple dataclass with the required parameters to produce fully
-            defined :class:`specio.measurement.Measurement`
+            defined :class:`specio.spectrometers.common.Measurement`
         """
 
         ...
@@ -138,7 +267,7 @@ class VirtualSpectrometer(SpecRadiometer):
         """
         return "specio"
 
-    @property
+    @cached_property
     def model(self):
         """The model name or model signature from the spectrometer.
 
@@ -165,7 +294,7 @@ class VirtualSpectrometer(SpecRadiometer):
         -------
         RawMeasurement
             A simple dataclass with the required parameters to produce fully
-            defined :class:`specio.measurement.Measurement`
+            defined :class:`specio.spectrometers.common.Measurement`
         """
         peaks = np.random.randint([460, 510, 600], [480, 570, 690], 3)
         widths = np.random.randint(40, 80, 3)

@@ -25,7 +25,7 @@ def virtual_data() -> Measurement_List:
     order = np.random.permutation(NUM_VIRTUAL)
 
     ml = Measurement_List(
-        measurements=np.asarray(measurements),
+        measurements=np.asarray(measurements),  # type: ignore
         test_colors=test_colors,
         order=order,
         metadata=MeasurementList_Notes(

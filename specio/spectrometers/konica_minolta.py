@@ -8,6 +8,7 @@ import struct
 import time
 from collections.abc import Mapping
 from enum import Enum
+from functools import cached_property
 from textwrap import dedent
 from types import MappingProxyType
 from typing import Any, NamedTuple, cast, final
@@ -18,8 +19,7 @@ from colour import SpectralDistribution, SpectralShape
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
-from specio.measurement import RawSPDMeasurement
-from specio.spectrometers.common import SpecRadiometer
+from specio.spectrometers.common import RawSPDMeasurement, SpecRadiometer
 
 __all__ = []
 
@@ -326,7 +326,7 @@ class CS2000(SpecRadiometer):
         """
         return self._manufacturer
 
-    @property
+    @cached_property
     def model(self) -> str:
         """The model name"""
         return self._model
@@ -391,7 +391,7 @@ class CS2000(SpecRadiometer):
                     time.sleep(0.5)
                     continue
                 else:
-                    raise e
+                    raise e  # noqa: TRY201 Transparently re-raise original exception
 
         _, spd0 = self._write_cmd("MEDR,1,1,1")
         _, spd1 = self._write_cmd("MEDR,1,1,2")

@@ -1,19 +1,19 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Self
+from typing import cast
 
 import numpy as np
 import xxhash
 from colour.colorimetry.spectrum import MultiSpectralDistributions
 from numpy import ndarray
 
-from specio.measurement import SPDMeasurement
 from specio.serialization.measurements import (
     spd_measurement_from_bytes,
     spd_measurement_to_proto,
 )
 from specio.serialization.protobuf import measurements_pb2
+from specio.spectrometers.common import SPDMeasurement
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -49,9 +49,7 @@ class Measurement_List:
 
     test_colors: ndarray
     order: Iterable[int]
-    measurements: Iterable[SPDMeasurement] = field(
-        default_factory=lambda: np.zeros(shape=(0, 0))
-    )
+    measurements: Sequence[SPDMeasurement] = field(default_factory=list)
     metadata: MeasurementList_Notes = field(
         default_factory=MeasurementList_Notes
     )
@@ -77,15 +75,17 @@ class Measurement_List:
     def __repr__(self) -> str:
         return f"Measurement List - {self.shortname}"
 
-    def __eq__(self, value: Self) -> bool:
-        return all(
-            (
-                np.all(self.test_colors == value.test_colors),
-                np.all(self.order == value.order),
-                np.all(self.measurements == value.measurements),
-                self.metadata == value.metadata,
+    def __eq__(self, value: object) -> bool:
+        if isinstance(value, Measurement_List):
+            return all(
+                (
+                    np.all(self.test_colors == value.test_colors),
+                    np.all(self.order == value.order),
+                    np.all(self.measurements == value.measurements),
+                    self.metadata == value.metadata,
+                )
             )
-        )
+        return False
 
 
 def measurement_list_to_buffer(
@@ -190,7 +190,7 @@ def load_csmf_file(
     tcs = np.array(tcs)
 
     return Measurement_List(
-        measurements=measurements,
+        measurements=cast(Sequence[SPDMeasurement], measurements),
         order=np.asarray(pbuf.order),
         test_colors=tcs,
         metadata=MeasurementList_Notes(

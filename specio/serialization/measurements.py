@@ -8,8 +8,8 @@ from typing import cast
 import numpy as np
 from colour import SpectralDistribution, SpectralShape
 
-from specio.measurement import SPDMeasurement
 from specio.serialization.protobuf import common_pb2, measurements_pb2
+from specio.spectrometers.common import SPDMeasurement
 
 
 def spd_measurement_to_proto(

@@ -105,7 +105,7 @@ class Colorimeter(ABC):
 
         ...
 
-    @property
+    @cached_property
     @abstractmethod
     def model(self) -> str:
         """The model name or identifier for the device
@@ -126,7 +126,7 @@ class Colorimeter(ABC):
         -------
         RawMeasurement
             A simple dataclass with the required parameters to produce fully
-            defined :class:`specio.measurement.Measurement`
+            defined :class:`specio.spectrometers.common.Measurement`
         """
 
         ...
@@ -191,7 +191,7 @@ class VirtualColorimeter(Colorimeter):
         """
         return "specio"
 
-    @property
+    @cached_property
     def model(self):
         """The model name or model signature from the spectrometer.
 
@@ -218,7 +218,7 @@ class VirtualColorimeter(Colorimeter):
         -------
         RawMeasurement
             A simple dataclass with the required parameters to produce fully
-            defined :class:`specio.measurement.Measurement`
+            defined :class:`specio.spectrometers.common.Measurement`
         """
         peaks = np.random.randint([460, 510, 600], [480, 570, 690], 3)
         widths = np.random.randint(40, 80, 3)

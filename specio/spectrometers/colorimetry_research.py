@@ -18,8 +18,7 @@ import serial.tools.list_ports
 from aenum import MultiValueEnum
 from colour import SpectralDistribution, SpectralShape
 
-from specio.measurement import RawSPDMeasurement
-from specio.spectrometers.common import SpecRadiometer
+from specio.spectrometers.common import RawSPDMeasurement, SpecRadiometer
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
