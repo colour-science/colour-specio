@@ -191,7 +191,7 @@ def load_csmf_file(
 
     return Measurement_List(
         measurements=measurements,
-        order=np.asarray(pbuf.order),  # type: ignore
+        order=np.asarray(pbuf.order),
         test_colors=tcs,
         metadata=MeasurementList_Notes(
             pbuf.notes, pbuf.author, pbuf.location, pbuf.software

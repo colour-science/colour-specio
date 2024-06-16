@@ -39,7 +39,7 @@ def virtual_data() -> Measurement_List:
 
 
 class Test_CSMF_Files:
-    def test_write_measurements(self, tmp_path: Path, virtual_data):
+    def test_csmf_rw(self, tmp_path: Path, virtual_data):
 
         p = tmp_path.joinpath("test_data")
 

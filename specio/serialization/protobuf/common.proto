@@ -1,0 +1,36 @@
+syntax = "proto3";
+package specio.proto;
+
+message SpectralShape {
+    double start = 1;
+    double end = 2;
+    double step = 3;
+}
+
+message SpectralDistribution {
+    SpectralShape shape = 1;
+    repeated double values = 2;
+    repeated float values_old = 4;
+    optional string name = 3;
+}
+
+message XYZ_value {
+    double X = 1;
+    double Y = 2;
+    double Z = 3;
+}
+
+message xy_value {
+    double x = 1;
+    double y = 2;
+}
+
+message cct_value {
+    double cct = 1;
+    double duv = 2;
+}
+
+message Timestamp {
+    // string representing the date in ISO 8601 format
+    string timestr = 1;
+}

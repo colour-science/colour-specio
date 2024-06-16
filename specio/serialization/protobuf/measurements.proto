@@ -1,40 +1,7 @@
 syntax = "proto3";
+package specio.proto;
 
-package specio;
-
-message SpectralShape {
-    double start = 1;
-    double end = 2;
-    double step = 3;
-}
-
-message SpectralDistribution {
-    SpectralShape shape = 1;
-    repeated double values = 2;
-    repeated float values_old = 4;
-    optional string name = 3;
-}
-
-message XYZ_value {
-    double X = 1;
-    double Y = 2;
-    double Z = 3;
-}
-
-message xy_value {
-    double x = 1;
-    double y = 2;
-}
-
-message cct_value {
-    double cct = 1;
-    double duv = 2;
-}
-
-message Timestamp {
-    // string representing the date in ISO 8601 format
-    string timestr = 1;
-}
+import "specio/serialization/protobuf/common.proto";
 
 message Colorimeter_Measurement {
     XYZ_value XYZ = 1;
@@ -63,8 +30,13 @@ message SPD_Measurement {
 }
 
 message Measurement_List {
-    repeated SPD_Measurement spd_measurements = 1;
-    repeated Colorimeter_Measurement xyz_measurements=4;
+    message Measurement {
+        optional SPD_Measurement spd = 1;
+        optional Colorimeter_Measurement xyz = 2;
+    };
+    
+    repeated Measurement measurements = 5;
+    repeated SPD_Measurement spd_measurements = 1;    
     
     message TestColor {
         repeated uint32 c = 1;

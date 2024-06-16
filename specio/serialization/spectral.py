@@ -3,10 +3,10 @@ from typing import cast
 import numpy as np
 from colour import SpectralDistribution, SpectralShape
 
-from specio.serialization.protobuf import measurements_pb2
+from specio.serialization.protobuf import common_pb2
 
 
-def sd_shape_to_buffer(shape: SpectralShape) -> measurements_pb2.SpectralShape:
+def sd_shape_to_buffer(shape: SpectralShape) -> common_pb2.SpectralShape:
     """Convert SpectralShape to buffer. Defaults to bytes but may optionally
     return protobuf object
 
@@ -26,7 +26,7 @@ def sd_shape_to_buffer(shape: SpectralShape) -> measurements_pb2.SpectralShape:
     --------
     `buffer_to_sd_shape`
     """
-    pb = measurements_pb2.SpectralShape()
+    pb = common_pb2.SpectralShape()
     pb.start = shape.start
     pb.end = shape.end
     pb.step = shape.interval
@@ -35,7 +35,7 @@ def sd_shape_to_buffer(shape: SpectralShape) -> measurements_pb2.SpectralShape:
 
 
 def buffer_to_sd_shape(
-    buffer: bytes | measurements_pb2.SpectralShape,
+    buffer: bytes | common_pb2.SpectralShape,
 ) -> SpectralShape:
     """
     Convert buffer back to `SpectralDistribution`
@@ -56,8 +56,8 @@ def buffer_to_sd_shape(
     """
 
     if isinstance(buffer, bytes):
-        buffer = measurements_pb2.SpectralShape.FromString(buffer)
-    buffer = cast(measurements_pb2.SpectralShape, buffer)
+        buffer = common_pb2.SpectralShape.FromString(buffer)
+    buffer = cast(common_pb2.SpectralShape, buffer)
 
     return SpectralShape(
         start=buffer.start, end=buffer.end, interval=buffer.step
@@ -66,7 +66,7 @@ def buffer_to_sd_shape(
 
 def sd_to_buffer(
     sd: SpectralDistribution, return_pb: bool = False
-) -> bytes | measurements_pb2.SpectralDistribution:
+) -> bytes | common_pb2.SpectralDistribution:
     """Convert a `SpectralDistribution` object to a buffer.
 
     Parameters
@@ -83,7 +83,7 @@ def sd_to_buffer(
         object via `specio.io.sd_from_buffer`
     """
 
-    pb = measurements_pb2.SpectralDistribution()
+    pb = common_pb2.SpectralDistribution()
     pb.name = sd.name
 
     pb.shape = sd_shape_to_buffer(sd.shape)
@@ -95,7 +95,7 @@ def sd_to_buffer(
 
 
 def buffer_to_sd(
-    buffer: bytes | measurements_pb2.SpectralDistribution,
+    buffer: bytes | common_pb2.SpectralDistribution,
 ) -> SpectralDistribution:
     """Try to convert a byte buffer to SpectralDistribution
 
@@ -116,10 +116,10 @@ def buffer_to_sd(
     """
 
     if isinstance(buffer, bytes):
-        pb = measurements_pb2.SpectralDistribution()
+        pb = common_pb2.SpectralDistribution()
         pb.ParseFromString(buffer)
         buffer = pb
-    pb = cast(measurements_pb2.SpectralDistribution, buffer)
+    pb = cast(common_pb2.SpectralDistribution, buffer)
 
     shape = buffer_to_sd_shape(pb.shape)
     values = pb.values if len(pb.values) > 0 else pb.values_old

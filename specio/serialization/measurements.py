@@ -9,7 +9,7 @@ import numpy as np
 from colour import SpectralDistribution, SpectralShape
 
 from specio.measurement import SPDMeasurement
-from specio.serialization.protobuf import measurements_pb2
+from specio.serialization.protobuf import common_pb2, measurements_pb2
 
 
 def spd_measurement_to_proto(
@@ -29,27 +29,25 @@ def spd_measurement_to_proto(
     measurements_pb2.SPD_Measurement
         proto handle for serializing the SPD Data.
     """
-    shape_buf = measurements_pb2.SpectralShape(
+    shape_buf = common_pb2.SpectralShape(
         start=spd.spd.shape.start,
         end=spd.spd.shape.end,
         step=spd.spd.shape.interval,
     )
-    spd_buf = measurements_pb2.SpectralDistribution(
+    spd_buf = common_pb2.SpectralDistribution(
         shape=shape_buf, values=spd.spd.values, name=spd.spd.name
     )
 
     buf = measurements_pb2.SPD_Measurement(
         spd=spd_buf,
         exposure=spd.exposure,
-        XYZ=measurements_pb2.XYZ_value(
-            X=spd.XYZ[0], Y=spd.XYZ[1], Z=spd.XYZ[2]
-        ),
-        xy=measurements_pb2.xy_value(x=spd.xy[0], y=spd.xy[1]),
-        cct=measurements_pb2.cct_value(cct=spd.cct, duv=spd.duv),
+        XYZ=common_pb2.XYZ_value(X=spd.XYZ[0], Y=spd.XYZ[1], Z=spd.XYZ[2]),
+        xy=common_pb2.xy_value(x=spd.xy[0], y=spd.xy[1]),
+        cct=common_pb2.cct_value(cct=spd.cct, duv=spd.duv),
         dominant_wl=spd.dominant_wl,
         power=spd.power,
         spectrometer_id=spd.spectrometer_id,
-        time=measurements_pb2.Timestamp(timestr=spd.time.isoformat()),
+        time=common_pb2.Timestamp(timestr=spd.time.isoformat()),
     )
     return buf
 
