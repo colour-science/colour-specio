@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 from specio.serialization.csmf import (
-    Measurement_List,
-    MeasurementList_Notes,
+    MeasurementList,
+    MeasurementListNotes,
     load_csmf_file,
     measurement_list_to_buffer,
     save_csmf_file,
@@ -14,21 +14,19 @@ from specio.spectrometers.common import VirtualSpectrometer
 
 
 @pytest.fixture(scope="class")
-def virtual_data() -> Measurement_List:
+def virtual_data() -> MeasurementList:
     vspr = VirtualSpectrometer()
 
     NUM_VIRTUAL = 100
     measurements = [vspr.measure() for _ in range(NUM_VIRTUAL)]
-    test_colors = np.random.uniform(0, 1023, (3, NUM_VIRTUAL)).astype(
-        np.float32
-    )
+    test_colors = np.random.uniform(0, 1023, (3, NUM_VIRTUAL)).astype(np.float32)
     order = np.random.permutation(NUM_VIRTUAL)
 
-    ml = Measurement_List(
+    ml = MeasurementList(
         measurements=np.asarray(measurements),  # type: ignore
         test_colors=test_colors,
         order=order,
-        metadata=MeasurementList_Notes(
+        metadata=MeasurementListNotes(
             notes="Random Test Measurements",
             author="tjdcs",
             location="virtual",
@@ -40,7 +38,6 @@ def virtual_data() -> Measurement_List:
 
 class Test_CSMF_Files:
     def test_csmf_rw(self, tmp_path: Path, virtual_data):
-
         p = tmp_path.joinpath("test_data")
 
         buffer = measurement_list_to_buffer(virtual_data)

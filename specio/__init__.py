@@ -15,16 +15,21 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 
+from specio.colorimeters.common import (
+    ColorimeterMeasurement,
+    VirtualColorimeter,
+)
+
 from .spectrometers.common import (
-    RawSPDMeasurement,
     SPDMeasurement,
     VirtualSpectrometer,
 )
 
 __all__ = [
     "SPDMeasurement",
-    "RawSPDMeasurement",
     "VirtualSpectrometer",
+    "ColorimeterMeasurement",
+    "VirtualColorimeter",
 ]
 
 

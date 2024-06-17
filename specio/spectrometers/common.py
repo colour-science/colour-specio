@@ -8,11 +8,14 @@ from abc import ABC, abstractmethod
 from ctypes import ArgumentError
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, final
+from typing import Any, Self, final
 
 import numpy as np
 from colour import SpectralDistribution, SpragueInterpolator, sd_multi_leds
-from colour.colorimetry.dominant import dominant_wavelength
+from colour.colorimetry.dominant import (
+    colorimetric_purity,
+    dominant_wavelength,
+)
 from colour.colorimetry.tristimulus_values import sd_to_XYZ
 from colour.models.cie_ucs import xy_to_UCS_uv
 from colour.models.cie_xyy import XYZ_to_xy
@@ -26,6 +29,8 @@ __license__ = (
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
+
+__all__ = []
 
 
 @dataclass
@@ -49,7 +54,7 @@ class SPDMeasurement:
     """
 
     @classmethod
-    def from_raw(cls, raw: RawSPDMeasurement) -> "SPDMeasurement":
+    def FromRaw(cls, raw: RawSPDMeasurement) -> Self:
         return cls(
             spd=raw.spd,
             exposure=raw.exposure,
@@ -83,6 +88,7 @@ class SPDMeasurement:
             self.dominant_wl = float(
                 dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0]
             )
+            self.purity: float = colorimetric_purity(self.xy, (1 / 3, 1 / 3))  # type: ignore
             self.power: float = np.asarray(self.spd.values).sum()
             self.time = datetime.datetime.now(tz=datetime.UTC)
 
@@ -101,7 +107,7 @@ class SPDMeasurement:
                 XYZ: {np.array2string(self.XYZ, formatter={'float_kind':lambda x: "%.2f" % x})}
                 xy: {np.array2string(self.xy, formatter={'float_kind':lambda x: "%.4f" % x})}
                 CCT: {self.cct:.0f} ± {self.duv:.5f}
-                Dominant WL: {self.dominant_wl:.1f}
+                Dominant WL: {self.dominant_wl:.1f} @ {self.purity * 100:.1f}%
                 Exposure: {self.exposure:.3f}
             """  # noqa: E501
         )
@@ -141,6 +147,7 @@ class SPDMeasurement:
             "XYZ",
             "xy",
             "dominant_wl",
+            "purity",
             "power",
             "time",
             "cct",
@@ -235,14 +242,14 @@ class SpecRadiometer(ABC):
             _rm += [self._raw_measure()]
 
         if len(_rm) == 1:
-            return SPDMeasurement.from_raw(_rm[0])
+            return SPDMeasurement.FromRaw(_rm[0])
 
         spd_values = np.asarray([m.spd.values for m in _rm]).mean(axis=0)
         spd = SpectralDistribution(data=spd_values, domain=_rm[0].spd.domain)
         exposure = np.mean([m.exposure for m in _rm]).item()
         id = _rm[0].spectrometer_id
 
-        return SPDMeasurement.from_raw(
+        return SPDMeasurement.FromRaw(
             RawSPDMeasurement(spd=spd, exposure=exposure, spectrometer_id=id)
         )
 

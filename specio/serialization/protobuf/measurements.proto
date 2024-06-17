@@ -8,6 +8,7 @@ message Colorimeter_Measurement {
     xy_value xy = 2;
     cct_value cct = 5;
     double dominant_wl = 6;
+    double purity = 8;
     Timestamp time = 7;
     
     double exposure = 16;
@@ -21,6 +22,7 @@ message SPD_Measurement {
     xy_value xy = 4;
     cct_value cct = 5;
     double dominant_wl = 6;
+    double purity = 10;
     double power = 7;
     string spectrometer_id = 8;
 

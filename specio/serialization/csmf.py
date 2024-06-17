@@ -1,11 +1,11 @@
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import cast
 
 import numpy as np
 import xxhash
 from colour.colorimetry.spectrum import MultiSpectralDistributions
+from colour.hints import NDArray
 from numpy import ndarray
 
 from specio.serialization.measurements import (
@@ -17,16 +17,21 @@ from specio.spectrometers.common import SPDMeasurement
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
-__license__ = (
-    "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
-)
+__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
+__all__ = [
+    "MeasurementList",
+    "MeasurementListNotes",
+    "measurement_list_to_buffer",
+    "save_csmf_file",
+    "load_csmf_file",
+]
 
 
 @dataclass()
-class MeasurementList_Notes:
+class MeasurementListNotes:
     """Several metadata strings relating to how a set of measurements was
     conducted.
     """
@@ -38,7 +43,7 @@ class MeasurementList_Notes:
 
 
 @dataclass(kw_only=True)
-class Measurement_List:
+class MeasurementList:
     """List of measurements, test colors, measurement, order, and metadata.
 
     Fields
@@ -49,10 +54,10 @@ class Measurement_List:
 
     test_colors: ndarray
     order: Iterable[int]
-    measurements: Sequence[SPDMeasurement] = field(default_factory=list)
-    metadata: MeasurementList_Notes = field(
-        default_factory=MeasurementList_Notes
+    measurements: NDArray = field(
+        default_factory=lambda: np.empty_like(prototype=SPDMeasurement)
     )
+    metadata: MeasurementListNotes = field(default_factory=MeasurementListNotes)
 
     @property
     def shortname(self) -> str:
@@ -64,19 +69,15 @@ class Measurement_List:
         str
         """
         if self.metadata.notes is None or self.metadata.notes == "":
-            spds = MultiSpectralDistributions(
-                [m.spd for m in self.measurements]
-            )
-            return xxhash.xxh32_hexdigest(
-                np.ascontiguousarray(spds.values).data
-            )
+            spds = MultiSpectralDistributions([m.spd for m in self.measurements])
+            return xxhash.xxh32_hexdigest(np.ascontiguousarray(spds.values).data)
         return self.metadata.notes
 
     def __repr__(self) -> str:
         return f"Measurement List - {self.shortname}"
 
     def __eq__(self, value: object) -> bool:
-        if isinstance(value, Measurement_List):
+        if isinstance(value, MeasurementList):
             return all(
                 (
                     np.all(self.test_colors == value.test_colors),
@@ -89,7 +90,7 @@ class Measurement_List:
 
 
 def measurement_list_to_buffer(
-    ml: Measurement_List,
+    ml: MeasurementList,
 ) -> measurements_pb2.Measurement_List:
     pbuf = measurements_pb2.Measurement_List()
 
@@ -131,7 +132,7 @@ def measurement_list_to_buffer(
 
 def save_csmf_file(
     file: str | Path,
-    ml: Measurement_List,
+    ml: MeasurementList,
 ):
     buffer = measurement_list_to_buffer(ml)
     data_string = buffer.SerializeToString()
@@ -145,9 +146,7 @@ def save_csmf_file(
         f.write(data_string)
 
 
-def load_csmf_file(
-    file: str | Path, recompute: bool = False
-) -> Measurement_List:
+def load_csmf_file(file: str | Path, recompute: bool = False) -> MeasurementList:
     """Load measurement list data from a file
 
     Parameters
@@ -176,9 +175,7 @@ def load_csmf_file(
 
     measurements = []
     for mbuf in pbuf.spd_measurements:
-        measurements.append(
-            spd_measurement_from_bytes(mbuf, recompute=recompute)
-        )
+        measurements.append(spd_measurement_from_bytes(mbuf, recompute=recompute))
     measurements = np.asarray(measurements)
 
     tcs = []
@@ -189,11 +186,11 @@ def load_csmf_file(
             tcs.append(color.f)
     tcs = np.array(tcs)
 
-    return Measurement_List(
-        measurements=cast(Sequence[SPDMeasurement], measurements),
+    return MeasurementList(
+        measurements=measurements,
         order=np.asarray(pbuf.order),
         test_colors=tcs,
-        metadata=MeasurementList_Notes(
+        metadata=MeasurementListNotes(
             pbuf.notes, pbuf.author, pbuf.location, pbuf.software
         ),
     )

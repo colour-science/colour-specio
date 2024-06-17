@@ -8,8 +8,53 @@ from typing import cast
 import numpy as np
 from colour import SpectralDistribution, SpectralShape
 
+from specio.colorimeters.common import ColorimeterMeasurement
 from specio.serialization.protobuf import common_pb2, measurements_pb2
 from specio.spectrometers.common import SPDMeasurement
+
+
+def colorimeter_measurement_to_proto(
+    col: ColorimeterMeasurement,
+) -> measurements_pb2.Colorimeter_Measurement:
+    buf = measurements_pb2.Colorimeter_Measurement(
+        XYZ=common_pb2.XYZ_value(X=col.XYZ[0], Y=col.XYZ[1], Z=col.XYZ[2]),
+        xy=common_pb2.xy_value(x=col.xy[0], y=col.xy[1]),
+        cct=common_pb2.cct_value(cct=col.cct, duv=col.duv),
+        dominant_wl=col.dominant_wl,
+        purity=col.purity,
+        time=common_pb2.Timestamp(timestr=col.time.isoformat()),
+        exposure=col.exposure,
+        colorimeter_id=col.device_id,
+    )
+    return buf
+
+
+def colorimeter_measurement_to_bytes(col: ColorimeterMeasurement) -> bytes:
+    return colorimeter_measurement_to_proto(col).SerializeToString()
+
+
+def colorimeter_measurement_from_bytes(
+    buffer: bytes | measurements_pb2.Colorimeter_Measurement,
+    recompute: bool = False,
+) -> ColorimeterMeasurement:
+    if isinstance(buffer, bytes):
+        buffer = measurements_pb2.Colorimeter_Measurement.FromString(buffer)
+    buffer = cast(measurements_pb2.Colorimeter_Measurement, buffer)
+    cm = ColorimeterMeasurement(
+        XYZ=np.asarray((buffer.XYZ.X, buffer.XYZ.Y, buffer.XYZ.Z)),
+        exposure=buffer.exposure,
+        device_id=buffer.colorimeter_id,
+        no_compute=not recompute,
+    )
+
+    if not recompute:
+        cm.cct = buffer.cct.cct
+        cm.duv = buffer.cct.duv
+        cm.xy = np.asarray((buffer.xy.x, buffer.xy.y))
+        cm.dominant_wl = buffer.dominant_wl
+        cm.purity = buffer.purity
+    cm.time = datetime.datetime.fromisoformat(buffer.time.timestr)
+    return cm
 
 
 def spd_measurement_to_proto(
@@ -45,6 +90,7 @@ def spd_measurement_to_proto(
         xy=common_pb2.xy_value(x=spd.xy[0], y=spd.xy[1]),
         cct=common_pb2.cct_value(cct=spd.cct, duv=spd.duv),
         dominant_wl=spd.dominant_wl,
+        purity=spd.purity,
         power=spd.power,
         spectrometer_id=spd.spectrometer_id,
         time=common_pb2.Timestamp(timestr=spd.time.isoformat()),
@@ -118,6 +164,7 @@ def spd_measurement_from_bytes(
         ret.XYZ = np.asarray((buffer.XYZ.X, buffer.XYZ.Y, buffer.XYZ.Z))
         ret.xy = np.asarray((buffer.xy.x, buffer.xy.y))
         ret.dominant_wl = buffer.dominant_wl
+        ret.purity = buffer.purity
         ret.power = buffer.power
     ret.time = datetime.datetime.fromisoformat(buffer.time.timestr)
     return ret

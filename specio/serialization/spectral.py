@@ -5,6 +5,13 @@ from colour import SpectralDistribution, SpectralShape
 
 from specio.serialization.protobuf import common_pb2
 
+__all__ = [
+    "sd_to_buffer",
+    "buffer_to_sd",
+    "sd_shape_to_buffer",
+    "buffer_to_sd_shape",
+]
+
 
 def sd_shape_to_buffer(shape: SpectralShape) -> common_pb2.SpectralShape:
     """Convert SpectralShape to buffer. Defaults to bytes but may optionally
@@ -59,9 +66,7 @@ def buffer_to_sd_shape(
         buffer = common_pb2.SpectralShape.FromString(buffer)
     buffer = cast(common_pb2.SpectralShape, buffer)
 
-    return SpectralShape(
-        start=buffer.start, end=buffer.end, interval=buffer.step
-    )
+    return SpectralShape(start=buffer.start, end=buffer.end, interval=buffer.step)
 
 
 def sd_to_buffer(
@@ -129,11 +134,3 @@ def buffer_to_sd(
         domain=shape,
         name=pb.name,
     )
-
-
-__all__ = [
-    "sd_to_buffer",
-    "buffer_to_sd",
-    "sd_shape_to_buffer",
-    "buffer_to_sd_shape",
-]

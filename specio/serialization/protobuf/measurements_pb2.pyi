@@ -7,11 +7,12 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Colorimeter_Measurement(_message.Message):
-    __slots__ = ("XYZ", "xy", "cct", "dominant_wl", "time", "exposure", "colorimeter_id")
+    __slots__ = ("XYZ", "xy", "cct", "dominant_wl", "purity", "time", "exposure", "colorimeter_id")
     XYZ_FIELD_NUMBER: _ClassVar[int]
     XY_FIELD_NUMBER: _ClassVar[int]
     CCT_FIELD_NUMBER: _ClassVar[int]
     DOMINANT_WL_FIELD_NUMBER: _ClassVar[int]
+    PURITY_FIELD_NUMBER: _ClassVar[int]
     TIME_FIELD_NUMBER: _ClassVar[int]
     EXPOSURE_FIELD_NUMBER: _ClassVar[int]
     COLORIMETER_ID_FIELD_NUMBER: _ClassVar[int]
@@ -19,19 +20,21 @@ class Colorimeter_Measurement(_message.Message):
     xy: _common_pb2.xy_value
     cct: _common_pb2.cct_value
     dominant_wl: float
+    purity: float
     time: _common_pb2.Timestamp
     exposure: float
     colorimeter_id: str
-    def __init__(self, XYZ: _Optional[_Union[_common_pb2.XYZ_value, _Mapping]] = ..., xy: _Optional[_Union[_common_pb2.xy_value, _Mapping]] = ..., cct: _Optional[_Union[_common_pb2.cct_value, _Mapping]] = ..., dominant_wl: _Optional[float] = ..., time: _Optional[_Union[_common_pb2.Timestamp, _Mapping]] = ..., exposure: _Optional[float] = ..., colorimeter_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, XYZ: _Optional[_Union[_common_pb2.XYZ_value, _Mapping]] = ..., xy: _Optional[_Union[_common_pb2.xy_value, _Mapping]] = ..., cct: _Optional[_Union[_common_pb2.cct_value, _Mapping]] = ..., dominant_wl: _Optional[float] = ..., purity: _Optional[float] = ..., time: _Optional[_Union[_common_pb2.Timestamp, _Mapping]] = ..., exposure: _Optional[float] = ..., colorimeter_id: _Optional[str] = ...) -> None: ...
 
 class SPD_Measurement(_message.Message):
-    __slots__ = ("spd", "exposure", "XYZ", "xy", "cct", "dominant_wl", "power", "spectrometer_id", "time")
+    __slots__ = ("spd", "exposure", "XYZ", "xy", "cct", "dominant_wl", "purity", "power", "spectrometer_id", "time")
     SPD_FIELD_NUMBER: _ClassVar[int]
     EXPOSURE_FIELD_NUMBER: _ClassVar[int]
     XYZ_FIELD_NUMBER: _ClassVar[int]
     XY_FIELD_NUMBER: _ClassVar[int]
     CCT_FIELD_NUMBER: _ClassVar[int]
     DOMINANT_WL_FIELD_NUMBER: _ClassVar[int]
+    PURITY_FIELD_NUMBER: _ClassVar[int]
     POWER_FIELD_NUMBER: _ClassVar[int]
     SPECTROMETER_ID_FIELD_NUMBER: _ClassVar[int]
     TIME_FIELD_NUMBER: _ClassVar[int]
@@ -41,10 +44,11 @@ class SPD_Measurement(_message.Message):
     xy: _common_pb2.xy_value
     cct: _common_pb2.cct_value
     dominant_wl: float
+    purity: float
     power: float
     spectrometer_id: str
     time: _common_pb2.Timestamp
-    def __init__(self, spd: _Optional[_Union[_common_pb2.SpectralDistribution, _Mapping]] = ..., exposure: _Optional[float] = ..., XYZ: _Optional[_Union[_common_pb2.XYZ_value, _Mapping]] = ..., xy: _Optional[_Union[_common_pb2.xy_value, _Mapping]] = ..., cct: _Optional[_Union[_common_pb2.cct_value, _Mapping]] = ..., dominant_wl: _Optional[float] = ..., power: _Optional[float] = ..., spectrometer_id: _Optional[str] = ..., time: _Optional[_Union[_common_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+    def __init__(self, spd: _Optional[_Union[_common_pb2.SpectralDistribution, _Mapping]] = ..., exposure: _Optional[float] = ..., XYZ: _Optional[_Union[_common_pb2.XYZ_value, _Mapping]] = ..., xy: _Optional[_Union[_common_pb2.xy_value, _Mapping]] = ..., cct: _Optional[_Union[_common_pb2.cct_value, _Mapping]] = ..., dominant_wl: _Optional[float] = ..., purity: _Optional[float] = ..., power: _Optional[float] = ..., spectrometer_id: _Optional[str] = ..., time: _Optional[_Union[_common_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class Measurement_List(_message.Message):
     __slots__ = ("measurements", "spd_measurements", "test_colors", "order", "notes", "author", "location", "software", "ancillary")

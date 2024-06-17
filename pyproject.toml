@@ -11,6 +11,8 @@ homepage = "https://github.com/tjdcs/specio"
 repository = "https://github.com/tjdcs/specio"
 include = ["LICENSE"]
 
+[tool.poetry.scripts]
+csmf_doctor = 'specio.scripts.csmf_doctor:main'
 
 [tool.poetry.dependencies]
 python = "^3.10,<3.13"
@@ -31,6 +33,7 @@ isort = "*"
 black = "*"
 pyright = "*"
 pytest-xdist = "*"
+mypy = "^1.10.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -69,6 +72,7 @@ line_length = 88
 split_on_trailing_comma = true
 
 [tool.ruff]
+exclude = ["*_pb2.py", "*_pb2.pyi"]
 target-version = "py39"
 line-length = 88
 ignore-init-module-imports = true
