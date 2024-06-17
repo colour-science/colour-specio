@@ -133,7 +133,7 @@ def measurement_list_to_buffer(
 def save_csmf_file(
     file: str | Path,
     ml: MeasurementList,
-):
+) -> Path:
     buffer = measurement_list_to_buffer(ml)
     data_string = buffer.SerializeToString()
 
@@ -144,6 +144,8 @@ def save_csmf_file(
 
     with open(file=file, mode="wb") as f:
         f.write(data_string)
+
+    return file
 
 
 def load_csmf_file(file: str | Path, recompute: bool = False) -> MeasurementList:

@@ -43,6 +43,8 @@ class TestColorimeterSerialization:
 
         data = colorimeter_measurement_to_bytes(m)
 
+        assert isinstance(data, bytes)
+
         m2 = colorimeter_measurement_from_bytes(data)
 
         assert m == m2

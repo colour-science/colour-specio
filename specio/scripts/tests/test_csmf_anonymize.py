@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from specio.scripts import csmf_anonymize
 from specio.serialization.csmf import (
     MeasurementList,
     MeasurementListNotes,
@@ -36,17 +37,21 @@ def virtual_data() -> MeasurementList:
     return ml
 
 
-class Test_CSMF_Files:
-    def test_csmf_rw(self, tmp_path: Path, virtual_data):
+class Test_CSMF_Anonymize:
+    def test_csmf_anonymize(self, tmp_path: Path, virtual_data):
         p = tmp_path.joinpath("test_data")
 
         buffer = measurement_list_to_buffer(virtual_data)
         p = save_csmf_file(p, virtual_data)
 
-        assert p.exists()
-        assert p.is_file()
-        assert p.read_bytes() == buffer.SerializeToString()
+        anon_file_path = csmf_anonymize.main(str(p))
 
-        read_data = load_csmf_file(p)
+        read_file = load_csmf_file(anon_file_path)
 
-        assert read_data == virtual_data
+        assert read_file.metadata.notes == ""
+        assert read_file.metadata.author == ""
+        assert read_file.metadata.location == ""
+        assert read_file.metadata.software == "specio:csmf_anonymize"
+        assert np.all(read_file.measurements == virtual_data.measurements)
+        assert np.all(read_file.order == virtual_data.order)
+        assert np.all(read_file.test_colors == virtual_data.test_colors)
