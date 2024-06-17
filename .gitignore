@@ -1,4 +1,5 @@
 .sandbox
+poetry.lock
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,windows,linux,python,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,windows,linux,python,visualstudiocode
