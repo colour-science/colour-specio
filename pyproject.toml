@@ -13,6 +13,7 @@ include = ["LICENSE"]
 
 [tool.poetry.scripts]
 csmf_doctor = 'specio.scripts.csmf_doctor:main'
+csmf_anonymize = 'specio.scripts.csmf_anonymize:main'
 
 [tool.poetry.dependencies]
 python = "^3.10,<3.13"
