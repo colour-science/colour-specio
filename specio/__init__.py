@@ -13,6 +13,8 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 
+import re
+
 from specio.colorimeters.common import (
     ColorimeterMeasurement,
     VirtualColorimeter,
