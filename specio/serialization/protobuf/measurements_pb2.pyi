@@ -1,4 +1,5 @@
 from specio.serialization.protobuf import common_pb2 as _common_pb2
+from specio.serialization.protobuf import rgb_space_pb2 as _rgb_space_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -50,8 +51,8 @@ class SPD_Measurement(_message.Message):
     time: _common_pb2.Timestamp
     def __init__(self, spd: _Optional[_Union[_common_pb2.SpectralDistribution, _Mapping]] = ..., exposure: _Optional[float] = ..., XYZ: _Optional[_Union[_common_pb2.XYZ_value, _Mapping]] = ..., xy: _Optional[_Union[_common_pb2.xy_value, _Mapping]] = ..., cct: _Optional[_Union[_common_pb2.cct_value, _Mapping]] = ..., dominant_wl: _Optional[float] = ..., purity: _Optional[float] = ..., power: _Optional[float] = ..., spectrometer_id: _Optional[str] = ..., time: _Optional[_Union[_common_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
-class Measurement_List(_message.Message):
-    __slots__ = ("measurements", "spd_measurements", "test_colors", "order", "notes", "author", "location", "software", "ancillary")
+class CSFM_File(_message.Message):
+    __slots__ = ("measurements", "spd_measurements", "test_colors", "order", "notes", "author", "location", "software", "ancillary", "target_rgb_space")
     class Measurement(_message.Message):
         __slots__ = ("spd", "xyz")
         SPD_FIELD_NUMBER: _ClassVar[int]
@@ -75,13 +76,15 @@ class Measurement_List(_message.Message):
     LOCATION_FIELD_NUMBER: _ClassVar[int]
     SOFTWARE_FIELD_NUMBER: _ClassVar[int]
     ANCILLARY_FIELD_NUMBER: _ClassVar[int]
-    measurements: _containers.RepeatedCompositeFieldContainer[Measurement_List.Measurement]
+    TARGET_RGB_SPACE_FIELD_NUMBER: _ClassVar[int]
+    measurements: _containers.RepeatedCompositeFieldContainer[CSFM_File.Measurement]
     spd_measurements: _containers.RepeatedCompositeFieldContainer[SPD_Measurement]
-    test_colors: _containers.RepeatedCompositeFieldContainer[Measurement_List.TestColor]
+    test_colors: _containers.RepeatedCompositeFieldContainer[CSFM_File.TestColor]
     order: _containers.RepeatedScalarFieldContainer[int]
     notes: str
     author: str
     location: str
     software: str
     ancillary: bytes
-    def __init__(self, measurements: _Optional[_Iterable[_Union[Measurement_List.Measurement, _Mapping]]] = ..., spd_measurements: _Optional[_Iterable[_Union[SPD_Measurement, _Mapping]]] = ..., test_colors: _Optional[_Iterable[_Union[Measurement_List.TestColor, _Mapping]]] = ..., order: _Optional[_Iterable[int]] = ..., notes: _Optional[str] = ..., author: _Optional[str] = ..., location: _Optional[str] = ..., software: _Optional[str] = ..., ancillary: _Optional[bytes] = ...) -> None: ...
+    target_rgb_space: _rgb_space_pb2.RGBSpace
+    def __init__(self, measurements: _Optional[_Iterable[_Union[CSFM_File.Measurement, _Mapping]]] = ..., spd_measurements: _Optional[_Iterable[_Union[SPD_Measurement, _Mapping]]] = ..., test_colors: _Optional[_Iterable[_Union[CSFM_File.TestColor, _Mapping]]] = ..., order: _Optional[_Iterable[int]] = ..., notes: _Optional[str] = ..., author: _Optional[str] = ..., location: _Optional[str] = ..., software: _Optional[str] = ..., ancillary: _Optional[bytes] = ..., target_rgb_space: _Optional[_Union[_rgb_space_pb2.RGBSpace, _Mapping]] = ...) -> None: ...

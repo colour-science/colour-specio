@@ -5,8 +5,8 @@ from pathlib import Path
 
 from specio import get_valid_filename
 from specio.serialization.csmf import (
-    MeasurementList,
-    MeasurementListNotes,
+    CSMF_Data,
+    CSMF_Metadata,
     load_csmf_file,
     save_csmf_file,
 )
@@ -27,14 +27,14 @@ def main(*args):
 
     output_path = file_path.parent if args.out_dir is None else Path(args.out_dir)
 
-    file_data.metadata = MeasurementListNotes(software="specio:csmf_anonymize")
+    file_data.metadata = CSMF_Metadata(software="specio:csmf_anonymize")
 
     output_path = output_path.joinpath(
         get_valid_filename(file_data.shortname)
     ).with_suffix(".csmf")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    ml = MeasurementList(
+    ml = CSMF_Data(
         test_colors=file_data.test_colors,
         measurements=file_data.measurements,
         metadata=file_data.metadata,

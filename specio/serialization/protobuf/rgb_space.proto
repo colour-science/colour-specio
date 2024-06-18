@@ -3,7 +3,7 @@ package specio.proto;
 
 import "specio/serialization/protobuf/common.proto";
 
-message TargetRGBSpace {
+message RGBSpace {
     message Primaries {
         xy_value red = 1;
         xy_value green = 2;

@@ -22,16 +22,16 @@ __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 __all__ = [
-    "MeasurementList",
-    "MeasurementListNotes",
-    "measurement_list_to_buffer",
+    "CSMF_Data",
+    "CSMF_Metadata",
+    "csmf_data_to_buffer",
     "save_csmf_file",
     "load_csmf_file",
 ]
 
 
 @dataclass()
-class MeasurementListNotes:
+class CSMF_Metadata:
     """Several metadata strings relating to how a set of measurements was
     conducted.
     """
@@ -43,7 +43,7 @@ class MeasurementListNotes:
 
 
 @dataclass(kw_only=True)
-class MeasurementList:
+class CSMF_Data:
     """List of measurements, test colors, measurement, order, and metadata.
 
     Fields
@@ -57,7 +57,7 @@ class MeasurementList:
     measurements: NDArray = field(
         default_factory=lambda: np.empty_like(prototype=SPDMeasurement)
     )
-    metadata: MeasurementListNotes = field(default_factory=MeasurementListNotes)
+    metadata: CSMF_Metadata = field(default_factory=CSMF_Metadata)
 
     @property
     def shortname(self) -> str:
@@ -77,7 +77,7 @@ class MeasurementList:
         return f"Measurement List - {self.shortname}"
 
     def __eq__(self, value: object) -> bool:
-        if isinstance(value, MeasurementList):
+        if isinstance(value, CSMF_Data):
             return all(
                 (
                     np.all(self.test_colors == value.test_colors),
@@ -89,10 +89,10 @@ class MeasurementList:
         return False
 
 
-def measurement_list_to_buffer(
-    ml: MeasurementList,
-) -> measurements_pb2.Measurement_List:
-    pbuf = measurements_pb2.Measurement_List()
+def csmf_data_to_buffer(
+    ml: CSMF_Data,
+) -> measurements_pb2.CSFM_File:
+    pbuf = measurements_pb2.CSFM_File()
 
     for m in ml.measurements:
         m_pbuf = spd_measurement_to_proto(m)
@@ -119,12 +119,12 @@ def measurement_list_to_buffer(
         if np.ptp(testColors) > 1 and np.all(np.modf(testColors)[0] < 1e-8):
             # If the test colors are ints, use the int field.
             for color in testColors:
-                tc_buf = measurements_pb2.Measurement_List.TestColor()
+                tc_buf = measurements_pb2.CSFM_File.TestColor()
                 tc_buf.c[:] = [int(value) for value in color.tolist()]
                 pbuf.test_colors.append(tc_buf)
         else:
             for color in testColors:
-                tc_buf = measurements_pb2.Measurement_List.TestColor()
+                tc_buf = measurements_pb2.CSFM_File.TestColor()
                 tc_buf.f[:] = color
                 pbuf.test_colors.append(tc_buf)
     return pbuf
@@ -132,9 +132,9 @@ def measurement_list_to_buffer(
 
 def save_csmf_file(
     file: str | Path,
-    ml: MeasurementList,
+    ml: CSMF_Data,
 ) -> Path:
-    buffer = measurement_list_to_buffer(ml)
+    buffer = csmf_data_to_buffer(ml)
     data_string = buffer.SerializeToString()
 
     if isinstance(file, str):
@@ -148,7 +148,7 @@ def save_csmf_file(
     return file
 
 
-def load_csmf_file(file: str | Path, recompute: bool = False) -> MeasurementList:
+def load_csmf_file(file: str | Path, recompute: bool = False) -> CSMF_Data:
     """Load measurement list data from a file
 
     Parameters
@@ -172,7 +172,7 @@ def load_csmf_file(file: str | Path, recompute: bool = False) -> MeasurementList
     with open(file, mode="rb") as f:
         data_string = f.read()
 
-    pbuf = measurements_pb2.Measurement_List()
+    pbuf = measurements_pb2.CSFM_File()
     pbuf.ParseFromString(data_string)
 
     measurements = []
@@ -188,11 +188,9 @@ def load_csmf_file(file: str | Path, recompute: bool = False) -> MeasurementList
             tcs.append(color.f)
     tcs = np.array(tcs)
 
-    return MeasurementList(
+    return CSMF_Data(
         measurements=measurements,
         order=np.asarray(pbuf.order),
         test_colors=tcs,
-        metadata=MeasurementListNotes(
-            pbuf.notes, pbuf.author, pbuf.location, pbuf.software
-        ),
+        metadata=CSMF_Metadata(pbuf.notes, pbuf.author, pbuf.location, pbuf.software),
     )

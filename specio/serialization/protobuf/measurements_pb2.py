@@ -23,23 +23,24 @@ _sym_db = _symbol_database.Default()
 
 
 from specio.serialization.protobuf import common_pb2 as specio_dot_serialization_dot_protobuf_dot_common__pb2
+from specio.serialization.protobuf import rgb_space_pb2 as specio_dot_serialization_dot_protobuf_dot_rgb__space__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n0specio/serialization/protobuf/measurements.proto\x12\x0cspecio.proto\x1a*specio/serialization/protobuf/common.proto\"\xff\x01\n\x17\x43olorimeter_Measurement\x12$\n\x03XYZ\x18\x01 \x01(\x0b\x32\x17.specio.proto.XYZ_value\x12\"\n\x02xy\x18\x02 \x01(\x0b\x32\x16.specio.proto.xy_value\x12$\n\x03\x63\x63t\x18\x05 \x01(\x0b\x32\x17.specio.proto.cct_value\x12\x13\n\x0b\x64ominant_wl\x18\x06 \x01(\x01\x12\x0e\n\x06purity\x18\x08 \x01(\x01\x12%\n\x04time\x18\x07 \x01(\x0b\x32\x17.specio.proto.Timestamp\x12\x10\n\x08\x65xposure\x18\x10 \x01(\x01\x12\x16\n\x0e\x63olorimeter_id\x18\x11 \x01(\t\"\xbe\x02\n\x0fSPD_Measurement\x12/\n\x03spd\x18\x01 \x01(\x0b\x32\".specio.proto.SpectralDistribution\x12\x10\n\x08\x65xposure\x18\x02 \x01(\x01\x12$\n\x03XYZ\x18\x03 \x01(\x0b\x32\x17.specio.proto.XYZ_value\x12\"\n\x02xy\x18\x04 \x01(\x0b\x32\x16.specio.proto.xy_value\x12$\n\x03\x63\x63t\x18\x05 \x01(\x0b\x32\x17.specio.proto.cct_value\x12\x13\n\x0b\x64ominant_wl\x18\x06 \x01(\x01\x12\x0e\n\x06purity\x18\n \x01(\x01\x12\r\n\x05power\x18\x07 \x01(\x01\x12\x17\n\x0fspectrometer_id\x18\x08 \x01(\t\x12%\n\x04time\x18\t \x01(\x0b\x32\x17.specio.proto.TimestampJ\x04\x08\x10\x10\x11\"\xde\x03\n\x10Measurement_List\x12@\n\x0cmeasurements\x18\x05 \x03(\x0b\x32*.specio.proto.Measurement_List.Measurement\x12\x37\n\x10spd_measurements\x18\x01 \x03(\x0b\x32\x1d.specio.proto.SPD_Measurement\x12=\n\x0btest_colors\x18\x03 \x03(\x0b\x32(.specio.proto.Measurement_List.TestColor\x12\r\n\x05order\x18\x02 \x03(\x05\x12\r\n\x05notes\x18\x10 \x01(\t\x12\x0e\n\x06\x61uthor\x18\x11 \x01(\t\x12\x10\n\x08location\x18\x12 \x01(\t\x12\x10\n\x08software\x18\x13 \x01(\t\x12\x11\n\tancillary\x18\x14 \x01(\x0c\x1a\x87\x01\n\x0bMeasurement\x12/\n\x03spd\x18\x01 \x01(\x0b\x32\x1d.specio.proto.SPD_MeasurementH\x00\x88\x01\x01\x12\x37\n\x03xyz\x18\x02 \x01(\x0b\x32%.specio.proto.Colorimeter_MeasurementH\x01\x88\x01\x01\x42\x06\n\x04_spdB\x06\n\x04_xyz\x1a!\n\tTestColor\x12\t\n\x01\x63\x18\x01 \x03(\r\x12\t\n\x01\x66\x18\x02 \x03(\x02\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n0specio/serialization/protobuf/measurements.proto\x12\x0cspecio.proto\x1a*specio/serialization/protobuf/common.proto\x1a-specio/serialization/protobuf/rgb_space.proto\"\xff\x01\n\x17\x43olorimeter_Measurement\x12$\n\x03XYZ\x18\x01 \x01(\x0b\x32\x17.specio.proto.XYZ_value\x12\"\n\x02xy\x18\x02 \x01(\x0b\x32\x16.specio.proto.xy_value\x12$\n\x03\x63\x63t\x18\x05 \x01(\x0b\x32\x17.specio.proto.cct_value\x12\x13\n\x0b\x64ominant_wl\x18\x06 \x01(\x01\x12\x0e\n\x06purity\x18\x08 \x01(\x01\x12%\n\x04time\x18\x07 \x01(\x0b\x32\x17.specio.proto.Timestamp\x12\x10\n\x08\x65xposure\x18\x10 \x01(\x01\x12\x16\n\x0e\x63olorimeter_id\x18\x11 \x01(\t\"\xbe\x02\n\x0fSPD_Measurement\x12/\n\x03spd\x18\x01 \x01(\x0b\x32\".specio.proto.SpectralDistribution\x12\x10\n\x08\x65xposure\x18\x02 \x01(\x01\x12$\n\x03XYZ\x18\x03 \x01(\x0b\x32\x17.specio.proto.XYZ_value\x12\"\n\x02xy\x18\x04 \x01(\x0b\x32\x16.specio.proto.xy_value\x12$\n\x03\x63\x63t\x18\x05 \x01(\x0b\x32\x17.specio.proto.cct_value\x12\x13\n\x0b\x64ominant_wl\x18\x06 \x01(\x01\x12\x0e\n\x06purity\x18\n \x01(\x01\x12\r\n\x05power\x18\x07 \x01(\x01\x12\x17\n\x0fspectrometer_id\x18\x08 \x01(\t\x12%\n\x04time\x18\t \x01(\x0b\x32\x17.specio.proto.TimestampJ\x04\x08\x10\x10\x11\"\xfb\x03\n\tCSFM_File\x12\x39\n\x0cmeasurements\x18\x04 \x03(\x0b\x32#.specio.proto.CSFM_File.Measurement\x12\x37\n\x10spd_measurements\x18\x01 \x03(\x0b\x32\x1d.specio.proto.SPD_Measurement\x12\x36\n\x0btest_colors\x18\x03 \x03(\x0b\x32!.specio.proto.CSFM_File.TestColor\x12\r\n\x05order\x18\x02 \x03(\x05\x12\r\n\x05notes\x18\x10 \x01(\t\x12\x0e\n\x06\x61uthor\x18\x11 \x01(\t\x12\x10\n\x08location\x18\x12 \x01(\t\x12\x10\n\x08software\x18\x13 \x01(\t\x12\x11\n\tancillary\x18\x14 \x01(\x0c\x12\x30\n\x10target_rgb_space\x18\x1f \x01(\x0b\x32\x16.specio.proto.RGBSpace\x1a\x87\x01\n\x0bMeasurement\x12/\n\x03spd\x18\x01 \x01(\x0b\x32\x1d.specio.proto.SPD_MeasurementH\x00\x88\x01\x01\x12\x37\n\x03xyz\x18\x02 \x01(\x0b\x32%.specio.proto.Colorimeter_MeasurementH\x01\x88\x01\x01\x42\x06\n\x04_spdB\x06\n\x04_xyz\x1a!\n\tTestColor\x12\t\n\x01\x63\x18\x01 \x03(\r\x12\t\n\x01\x66\x18\x02 \x03(\x02\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'specio.serialization.protobuf.measurements_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_COLORIMETER_MEASUREMENT']._serialized_start=111
-  _globals['_COLORIMETER_MEASUREMENT']._serialized_end=366
-  _globals['_SPD_MEASUREMENT']._serialized_start=369
-  _globals['_SPD_MEASUREMENT']._serialized_end=687
-  _globals['_MEASUREMENT_LIST']._serialized_start=690
-  _globals['_MEASUREMENT_LIST']._serialized_end=1168
-  _globals['_MEASUREMENT_LIST_MEASUREMENT']._serialized_start=998
-  _globals['_MEASUREMENT_LIST_MEASUREMENT']._serialized_end=1133
-  _globals['_MEASUREMENT_LIST_TESTCOLOR']._serialized_start=1135
-  _globals['_MEASUREMENT_LIST_TESTCOLOR']._serialized_end=1168
+  _globals['_COLORIMETER_MEASUREMENT']._serialized_start=158
+  _globals['_COLORIMETER_MEASUREMENT']._serialized_end=413
+  _globals['_SPD_MEASUREMENT']._serialized_start=416
+  _globals['_SPD_MEASUREMENT']._serialized_end=734
+  _globals['_CSFM_FILE']._serialized_start=737
+  _globals['_CSFM_FILE']._serialized_end=1244
+  _globals['_CSFM_FILE_MEASUREMENT']._serialized_start=1074
+  _globals['_CSFM_FILE_MEASUREMENT']._serialized_end=1209
+  _globals['_CSFM_FILE_TESTCOLOR']._serialized_start=1211
+  _globals['_CSFM_FILE_TESTCOLOR']._serialized_end=1244
 # @@protoc_insertion_point(module_scope)

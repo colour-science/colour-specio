@@ -6,16 +6,16 @@ from typing import ClassVar as _ClassVar, Mapping as _Mapping, Optional as _Opti
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
-class TargetRGBSpace(_message.Message):
+class RGBSpace(_message.Message):
     __slots__ = ("gamut", "tf")
     class StandardTransferFunctions(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
-        ST2084: _ClassVar[TargetRGBSpace.StandardTransferFunctions]
-        BT1886: _ClassVar[TargetRGBSpace.StandardTransferFunctions]
-        ITU_HLG: _ClassVar[TargetRGBSpace.StandardTransferFunctions]
-    ST2084: TargetRGBSpace.StandardTransferFunctions
-    BT1886: TargetRGBSpace.StandardTransferFunctions
-    ITU_HLG: TargetRGBSpace.StandardTransferFunctions
+        ST2084: _ClassVar[RGBSpace.StandardTransferFunctions]
+        BT1886: _ClassVar[RGBSpace.StandardTransferFunctions]
+        ITU_HLG: _ClassVar[RGBSpace.StandardTransferFunctions]
+    ST2084: RGBSpace.StandardTransferFunctions
+    BT1886: RGBSpace.StandardTransferFunctions
+    ITU_HLG: RGBSpace.StandardTransferFunctions
     class Primaries(_message.Message):
         __slots__ = ("red", "green", "blue")
         RED_FIELD_NUMBER: _ClassVar[int]
@@ -30,10 +30,10 @@ class TargetRGBSpace(_message.Message):
         GAMMA_FIELD_NUMBER: _ClassVar[int]
         STANDARD_FIELD_NUMBER: _ClassVar[int]
         gamma: float
-        standard: TargetRGBSpace.StandardTransferFunctions
-        def __init__(self, gamma: _Optional[float] = ..., standard: _Optional[_Union[TargetRGBSpace.StandardTransferFunctions, str]] = ...) -> None: ...
+        standard: RGBSpace.StandardTransferFunctions
+        def __init__(self, gamma: _Optional[float] = ..., standard: _Optional[_Union[RGBSpace.StandardTransferFunctions, str]] = ...) -> None: ...
     GAMUT_FIELD_NUMBER: _ClassVar[int]
     TF_FIELD_NUMBER: _ClassVar[int]
-    gamut: TargetRGBSpace.Primaries
-    tf: TargetRGBSpace.TransferFunc
-    def __init__(self, gamut: _Optional[_Union[TargetRGBSpace.Primaries, _Mapping]] = ..., tf: _Optional[_Union[TargetRGBSpace.TransferFunc, _Mapping]] = ...) -> None: ...
+    gamut: RGBSpace.Primaries
+    tf: RGBSpace.TransferFunc
+    def __init__(self, gamut: _Optional[_Union[RGBSpace.Primaries, _Mapping]] = ..., tf: _Optional[_Union[RGBSpace.TransferFunc, _Mapping]] = ...) -> None: ...

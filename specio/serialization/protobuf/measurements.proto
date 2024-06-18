@@ -2,6 +2,7 @@ syntax = "proto3";
 package specio.proto;
 
 import "specio/serialization/protobuf/common.proto";
+import "specio/serialization/protobuf/rgb_space.proto";
 
 message Colorimeter_Measurement {
     XYZ_value XYZ = 1;
@@ -31,27 +32,29 @@ message SPD_Measurement {
     reserved 16;
 }
 
-message Measurement_List {
+message CSFM_File {
     message Measurement {
         optional SPD_Measurement spd = 1;
         optional Colorimeter_Measurement xyz = 2;
     };
     
-    repeated Measurement measurements = 5;
-    repeated SPD_Measurement spd_measurements = 1;    
-    
     message TestColor {
         repeated uint32 c = 1;
         repeated float f = 2;
     }
+
+    repeated Measurement measurements = 4;
+    repeated SPD_Measurement spd_measurements = 1;    
     
     repeated TestColor test_colors = 3;
-
     repeated int32 order = 2;
 
     string notes = 16;
     string author = 17;
     string location = 18;
     string software = 19;
+    
     bytes ancillary = 20;
+
+    RGBSpace target_rgb_space = 31;
 }
