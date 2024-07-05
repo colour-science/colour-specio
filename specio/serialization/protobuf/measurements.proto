@@ -2,7 +2,6 @@ syntax = "proto3";
 package specio.proto;
 
 import "specio/serialization/protobuf/common.proto";
-import "specio/serialization/protobuf/rgb_space.proto";
 
 message Colorimeter_Measurement {
     XYZ_value XYZ = 1;
@@ -55,6 +54,4 @@ message CSFM_File {
     string software = 19;
     
     bytes ancillary = 20;
-
-    RGBSpace target_rgb_space = 31;
 }
