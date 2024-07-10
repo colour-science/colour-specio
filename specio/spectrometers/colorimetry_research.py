@@ -22,9 +22,7 @@ from specio.spectrometers.common import RawSPDMeasurement, SpecRadiometer
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
-__license__ = (
-    "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
-)
+__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
@@ -179,7 +177,7 @@ class CRSpectrometer(SpecRadiometer):
         the hardware device.
     """
 
-    DEFAULT_TIMEOUT = 0.005
+    COMMAND_TIMEOUT = 0.1
 
     CR300_SERIAL_KWARGS: Mapping = MappingProxyType(
         {
@@ -187,7 +185,7 @@ class CRSpectrometer(SpecRadiometer):
             "bytesize": 8,
             "parity": "N",
             "rtscts": True,
-            "timeout": 0.01,
+            "timeout": 0.05,
         }
     )
 
@@ -211,9 +209,7 @@ class CRSpectrometer(SpecRadiometer):
         elif platform.system() == "Windows":
             port_list = list(serial.tools.list_ports.grep("Colorimetry"))
         elif platform.system() == "Unix":
-            raise NotImplementedError(
-                "CR discovery is not implemented for Unix"
-            )
+            raise NotImplementedError("CR discovery is not implemented for Unix")
         elif platform.system() == "Linux":
             port_list = list(serial.tools.list_ports.grep("ACM"))
         else:
@@ -225,7 +221,16 @@ class CRSpectrometer(SpecRadiometer):
         for p in port_list:
             try:
                 device = p.device  # type: ignore
-                sp = serial.Serial(device, **cls.CR300_SERIAL_KWARGS)
+                sp = serial.Serial(
+                    device,
+                    **{
+                        "baudrate": 115200,
+                        "bytesize": 8,
+                        "parity": "N",
+                        "rtscts": True,
+                        "timeout": 0.1,
+                    },
+                )
                 sp.read_all()
                 sp.write(b"RC InstrumentType\n")
 
@@ -286,9 +291,7 @@ class CRSpectrometer(SpecRadiometer):
         """
         response = self.__write_cmd("SM ExposureMode 0")
         response = self.__write_cmd("RS Speed")
-        self._measurement_speed = MeasurementSpeed(
-            response.arguments[0].lower()
-        )
+        self._measurement_speed = MeasurementSpeed(response.arguments[0].lower())
         return self._measurement_speed
 
     @measurement_speed.setter
@@ -347,10 +350,7 @@ class CRSpectrometer(SpecRadiometer):
         """
         Check that the connected device is a spectrometer
         """
-        if (
-            not hasattr(self, "_instrument_type")
-            or self._instrument_type is None
-        ):
+        if not hasattr(self, "_instrument_type") or self._instrument_type is None:
             response = self.__write_cmd("RC InstrumentType")
             i_type = InstrumentType(response.arguments[0])
             self._instrument_type = i_type
@@ -361,7 +361,10 @@ class CRSpectrometer(SpecRadiometer):
         """
         Clear input buffer
         """
-        self._port.readall()
+        t = self._port.timeout
+        self._port.apply_settings({"timeout": 0.05})
+        self._port.read_all()
+        self._port.apply_settings({"timeout": t})
 
     def __write_cmd(self, command: str) -> CommandResponse:
         """
@@ -371,23 +374,17 @@ class CRSpectrometer(SpecRadiometer):
         log.debug("Sending CMD: %s", command)
 
         enc_command: bytes = (command + "\n").encode()
-        self.__clear_buffer()
-        if self.__last_cmd_time + self.DEFAULT_TIMEOUT > time.time():
+        if self.__last_cmd_time + self.COMMAND_TIMEOUT > time.time():
             time.sleep(
                 max(
-                    self.__last_cmd_time
-                    + self.DEFAULT_TIMEOUT
-                    + 0.001
-                    - time.time(),
+                    self.__last_cmd_time + self.COMMAND_TIMEOUT + 0.001 - time.time(),
                     0,
                 )
             )
 
+        self.__clear_buffer()
         self._port.write(enc_command)
         self.__last_cmd_time = time.time()
-
-        while self._port.in_waiting < 1:
-            time.sleep(0.01)
 
         response = self._port.readline()
 
@@ -427,8 +424,14 @@ class CRSpectrometer(SpecRadiometer):
         """
         Make spectral measurement with CR
         """
+        t = self._port.timeout
+        self._port.apply_settings({"timeout": 31})
         response = self.__write_cmd("M")
+        self._port.apply_settings({"timeout": t})
+
+        self._port.apply_settings({"timeout": 1.5})
         response = self.__write_cmd("RM Spectrum")
+        self._port.apply_settings({"timeout": t})
 
         args = response.arguments[0].split(",")
         if float(args[1]) != 0:
@@ -442,8 +445,9 @@ class CRSpectrometer(SpecRadiometer):
         elif self.model == "CR-250":
             shape = SpectralShape(380, 780, 4)
 
-        data = self._port.readall()
-        data = [float(d) for d in data.decode().splitlines()]
+        time.sleep(0.01)
+        data = [self._port.readline() for _ in range(len(shape.wavelengths))]
+        data = [float(d.decode()) for d in data]
 
         exposure = self.__write_cmd("RM Exposure").arguments[0]
         exMatch = re.match(r"\d*\.?\d*", exposure)
