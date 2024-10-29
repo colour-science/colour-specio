@@ -177,15 +177,15 @@ class CRSpectrometer(SpecRadiometer):
         the hardware device.
     """
 
-    COMMAND_TIMEOUT = 0.1
-
+    COMMAND_TIMEOUT = 0.05
+    DEFAULT_SERIAL_TIMEOUT = 0.025
     CR300_SERIAL_KWARGS: Mapping = MappingProxyType(
         {
             "baudrate": 115200,
             "bytesize": 8,
             "parity": "N",
             "rtscts": True,
-            "timeout": 0.05,
+            "timeout": DEFAULT_SERIAL_TIMEOUT,
         }
     )
 
@@ -362,7 +362,7 @@ class CRSpectrometer(SpecRadiometer):
         Clear input buffer
         """
         t = self._port.timeout
-        self._port.apply_settings({"timeout": 0.05})
+        self._port.apply_settings({"timeout": CRSpectrometer.DEFAULT_SERIAL_TIMEOUT})
         self._port.read_all()
         self._port.apply_settings({"timeout": t})
 
@@ -377,7 +377,10 @@ class CRSpectrometer(SpecRadiometer):
         if self.__last_cmd_time + self.COMMAND_TIMEOUT > time.time():
             time.sleep(
                 max(
-                    self.__last_cmd_time + self.COMMAND_TIMEOUT + 0.001 - time.time(),
+                    self.__last_cmd_time
+                    + CRSpectrometer.COMMAND_TIMEOUT
+                    + 0.001
+                    - time.time(),
                     0,
                 )
             )
@@ -429,7 +432,7 @@ class CRSpectrometer(SpecRadiometer):
         response = self.__write_cmd("M")
         self._port.apply_settings({"timeout": t})
 
-        self._port.apply_settings({"timeout": 1.5})
+        self._port.apply_settings({"timeout": 0.5})
         response = self.__write_cmd("RM Spectrum")
         self._port.apply_settings({"timeout": t})
 
