@@ -3,7 +3,7 @@ import os
 import sys
 from pathlib import Path
 
-from specio import get_valid_filename
+from specio.common import get_valid_filename
 from specio.serialization.csmf import (
     CSMF_Data,
     CSMF_Metadata,

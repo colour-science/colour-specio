@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from specio.common import VirtualSpectrometer
 from specio.serialization.csmf import (
     CSMF_Data,
     CSMF_Metadata,
@@ -10,7 +11,6 @@ from specio.serialization.csmf import (
     load_csmf_file,
     save_csmf_file,
 )
-from specio.spectrometers.common import VirtualSpectrometer
 
 
 @pytest.fixture(scope="class")

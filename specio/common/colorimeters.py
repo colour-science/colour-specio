@@ -23,12 +23,12 @@ from colour.temperature.ohno2013 import XYZ_to_CCT_Ohno2013
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
-__license__ = (
-    "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
-)
+__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
+
+__all__ = []
 
 
 @dataclass
@@ -39,7 +39,6 @@ class RawColorimeterMeasurement:
 
 
 class ColorimeterMeasurement:
-
     @classmethod
     def FromRaw(cls, raw: RawColorimeterMeasurement) -> Self:
         return cls(raw.XYZ, raw.exposure, raw.device_id)
@@ -83,9 +82,7 @@ class ColorimeterMeasurement:
                 "purity",
                 "time",
             ]
-            bools = [
-                np.all(getattr(self, k) == getattr(other, k)) for k in keys
-            ]
+            bools = [np.all(getattr(self, k) == getattr(other, k)) for k in keys]
             return all(bools)
         return False
 
@@ -270,9 +267,3 @@ class VirtualColorimeter(Colorimeter):
             device_id="Virtual Spectrometer",
         )
         return _measurement
-
-
-if __name__ == "__main__":
-    c = VirtualColorimeter()
-    print(c.measure())
-    print()

@@ -2,11 +2,11 @@
 Define basic spectrometer interfaces
 """
 
-import datetime
 import textwrap
 from abc import ABC, abstractmethod
 from ctypes import ArgumentError
 from dataclasses import dataclass
+from datetime import datetime
 from functools import cached_property
 from typing import Any, Self, final
 
@@ -23,9 +23,7 @@ from colour.temperature import uv_to_CCT
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
-__license__ = (
-    "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
-)
+__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
@@ -85,12 +83,10 @@ class SPDMeasurement:
             _cct = uv_to_CCT(xy_to_UCS_uv(self.xy))
             self.cct: float = _cct[0]
             self.duv: float = _cct[1]
-            self.dominant_wl = float(
-                dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0]
-            )
+            self.dominant_wl = float(dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0])
             self.purity: float = colorimetric_purity(self.xy, (1 / 3, 1 / 3))  # type: ignore
             self.power: float = np.asarray(self.spd.values).sum()
-            self.time = datetime.datetime.now(tz=datetime.UTC)
+            self.time = datetime
 
     def __str__(self) -> str:
         """
@@ -104,8 +100,8 @@ class SPDMeasurement:
             f"""
             Spectral Measurement - {self.spectrometer_id}:
                 time: {self.time}
-                XYZ: {np.array2string(self.XYZ, formatter={'float_kind':lambda x: "%.2f" % x})}
-                xy: {np.array2string(self.xy, formatter={'float_kind':lambda x: "%.4f" % x})}
+                XYZ: {np.array2string(self.XYZ, formatter={'float_kind':lambda x: f"{x:.4f}"})}
+                xy: {np.array2string(self.xy, formatter={'float_kind':lambda x: f"{x:.4f}"})}
                 CCT: {self.cct:.0f} ± {self.duv:.5f}
                 Dominant WL: {self.dominant_wl:.1f} @ {self.purity * 100:.1f}%
                 Exposure: {self.exposure:.3f}

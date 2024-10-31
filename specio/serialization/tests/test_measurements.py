@@ -1,11 +1,11 @@
 from specio.colorimeters.common import VirtualColorimeter
+from specio.common import VirtualSpectrometer
 from specio.serialization.measurements import (
     colorimeter_measurement_from_bytes,
     colorimeter_measurement_to_bytes,
     spd_measurement_from_bytes,
     spd_measurement_to_bytes,
 )
-from specio.spectrometers.common import VirtualSpectrometer
 
 
 class TestSPDMeasurementSerialization:

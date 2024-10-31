@@ -12,13 +12,17 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
 from types import MappingProxyType
-from typing import Self, final
+from typing import Self, cast, final
 
+import bidict
+import numpy as np
 import serial.tools.list_ports
 from aenum import MultiValueEnum
 from colour import SpectralDistribution, SpectralShape
 
-from specio.spectrometers.common import RawSPDMeasurement, SpecRadiometer
+from specio.common import RawSPDMeasurement, SpecRadiometer
+from specio.common.colorimeters import Colorimeter, RawColorimeterMeasurement
+from specio.common.utility import specio_warning
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -26,7 +30,19 @@ __license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.m
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
-__all__ = []
+
+
+_COMMAND_TIMEOUT = 0.05
+_DEFAULT_SERIAL_TIMEOUT = 0.025
+_CR_SERIAL_KWARGS: Mapping = MappingProxyType(
+    {
+        "baudrate": 115200,
+        "bytesize": 8,
+        "parity": "N",
+        "rtscts": True,
+        "timeout": _DEFAULT_SERIAL_TIMEOUT,
+    }
+)
 
 
 class InstrumentType(MultiValueEnum):
@@ -177,18 +193,6 @@ class CRSpectrometer(SpecRadiometer):
         the hardware device.
     """
 
-    COMMAND_TIMEOUT = 0.05
-    DEFAULT_SERIAL_TIMEOUT = 0.025
-    CR300_SERIAL_KWARGS: Mapping = MappingProxyType(
-        {
-            "baudrate": 115200,
-            "bytesize": 8,
-            "parity": "N",
-            "rtscts": True,
-            "timeout": DEFAULT_SERIAL_TIMEOUT,
-        }
-    )
-
     @classmethod
     def discover(cls) -> "CRSpectrometer":
         """Attempt automatic discovery of the CR serial port and return the
@@ -259,7 +263,7 @@ class CRSpectrometer(SpecRadiometer):
         """
         self.__last_cmd_time: float = 0
         if isinstance(port, str):
-            self._port = serial.Serial(port, **self.CR300_SERIAL_KWARGS)
+            self._port = serial.Serial(port, **_CR_SERIAL_KWARGS)
 
         self.measurement_speed = speed
 
@@ -277,7 +281,7 @@ class CRSpectrometer(SpecRadiometer):
         str
         """
         if not hasattr(self, "_firmware") or self._firmware is None:
-            response = self.__write_cmd("RC Firmware")
+            response = self._write_cmd("RC Firmware")
             self._firmware = response.arguments[0]
         return self._firmware
 
@@ -289,14 +293,14 @@ class CRSpectrometer(SpecRadiometer):
         -------
         MeasurementSpeed
         """
-        response = self.__write_cmd("SM ExposureMode 0")
-        response = self.__write_cmd("RS Speed")
+        response = self._write_cmd("SM ExposureMode 0")
+        response = self._write_cmd("RS Speed")
         self._measurement_speed = MeasurementSpeed(response.arguments[0].lower())
         return self._measurement_speed
 
     @measurement_speed.setter
     def measurement_speed(self, speed: MeasurementSpeed):
-        _ = self.__write_cmd(f"SM Speed {speed.values[0]}")
+        _ = self._write_cmd(f"SM Speed {speed.values[0]}")
         self._measurement_speed = speed
 
     @property
@@ -305,7 +309,7 @@ class CRSpectrometer(SpecRadiometer):
         Get spectrometer aperture value
         """
         if not hasattr(self, "_aperture") or self._aperture is None:
-            response = self.__write_cmd("RS Aperture")
+            response = self._write_cmd("RS Aperture")
             self._aperture = response.arguments[0]
         return self._aperture
 
@@ -318,20 +322,20 @@ class CRSpectrometer(SpecRadiometer):
         str
         """
         if not hasattr(self, "_sn") or self._sn is None:
-            response = self.__write_cmd("RC ID")
+            response = self._write_cmd("RC ID")
             self._sn = response.arguments[0]
         return self._sn
 
     @property
     def ExposureMultiplier(self) -> int:
         if not hasattr(self, "_ExposureX"):
-            response = self.__write_cmd("RM ExposureX")
+            response = self._write_cmd("RM ExposureX")
             self._ExposureX = int(response.arguments[0])
         return self._ExposureX
 
     @ExposureMultiplier.setter
     def ExposureMultiplier(self, multiplier: int) -> None:
-        self.__write_cmd(f"SM ExposureX {multiplier:d}")
+        self._write_cmd(f"SM ExposureX {multiplier:d}")
         del self._ExposureX
 
     @cached_property
@@ -342,7 +346,7 @@ class CRSpectrometer(SpecRadiometer):
         -------
         str
         """
-        response = self.__write_cmd("RC Model")
+        response = self._write_cmd("RC Model")
         return response.arguments[0]
 
     @property
@@ -351,7 +355,7 @@ class CRSpectrometer(SpecRadiometer):
         Check that the connected device is a spectrometer
         """
         if not hasattr(self, "_instrument_type") or self._instrument_type is None:
-            response = self.__write_cmd("RC InstrumentType")
+            response = self._write_cmd("RC InstrumentType")
             i_type = InstrumentType(response.arguments[0])
             self._instrument_type = i_type
 
@@ -362,11 +366,11 @@ class CRSpectrometer(SpecRadiometer):
         Clear input buffer
         """
         t = self._port.timeout
-        self._port.apply_settings({"timeout": CRSpectrometer.DEFAULT_SERIAL_TIMEOUT})
-        self._port.read_all()
+        self._port.apply_settings({"timeout": _DEFAULT_SERIAL_TIMEOUT})
+        self._port.readall()
         self._port.apply_settings({"timeout": t})
 
-    def __write_cmd(self, command: str) -> CommandResponse:
+    def _write_cmd(self, command: str) -> CommandResponse:
         """
         Write cmd to serial port
         """
@@ -374,13 +378,10 @@ class CRSpectrometer(SpecRadiometer):
         log.debug("Sending CMD: %s", command)
 
         enc_command: bytes = (command + "\n").encode()
-        if self.__last_cmd_time + self.COMMAND_TIMEOUT > time.time():
+        if self.__last_cmd_time + _COMMAND_TIMEOUT > time.time():
             time.sleep(
                 max(
-                    self.__last_cmd_time
-                    + CRSpectrometer.COMMAND_TIMEOUT
-                    + 0.001
-                    - time.time(),
+                    self.__last_cmd_time + _COMMAND_TIMEOUT + 0.001 - time.time(),
                     0,
                 )
             )
@@ -423,17 +424,28 @@ class CRSpectrometer(SpecRadiometer):
             arguments=args,
         )
 
+    def _apply_measurementspeed_timeout(self):
+        if self.measurement_speed is MeasurementSpeed.SLOW:
+            self._port.apply_settings({"timeout": 70})
+        elif self.measurement_speed is MeasurementSpeed.NORMAL:
+            self._port.apply_settings({"timeout": 21})
+        elif self.measurement_speed is MeasurementSpeed.FAST:
+            self._port.apply_settings({"timeout": 14})
+        else:
+            self._port.apply_settings({"timeout": 6})
+
     def _raw_measure(self) -> RawSPDMeasurement:
         """
         Make spectral measurement with CR
         """
         t = self._port.timeout
-        self._port.apply_settings({"timeout": 31})
-        response = self.__write_cmd("M")
+
+        self._apply_measurementspeed_timeout()
+        response = self._write_cmd("M")
         self._port.apply_settings({"timeout": t})
 
-        self._port.apply_settings({"timeout": 0.5})
-        response = self.__write_cmd("RM Spectrum")
+        self._port.apply_settings({"timeout": 0.31})
+        response = self._write_cmd("RM Spectrum")
         self._port.apply_settings({"timeout": t})
 
         args = response.arguments[0].split(",")
@@ -452,12 +464,287 @@ class CRSpectrometer(SpecRadiometer):
         data = [self._port.readline() for _ in range(len(shape.wavelengths))]
         data = [float(d.decode()) for d in data]
 
-        exposure = self.__write_cmd("RM Exposure").arguments[0]
+        exposure = self._write_cmd("RM Exposure").arguments[0]
         exMatch = re.match(r"\d*\.?\d*", exposure)
         exposure = float(exMatch.group()) / 1000 if exMatch else -1
 
         return RawSPDMeasurement(
             spd=SpectralDistribution(data=data, domain=shape),
             spectrometer_id=self.readable_id,
+            exposure=exposure,
+        )
+
+
+@final
+class CRColorimeter(Colorimeter):
+    """Interface with a colorimetry research brand CR-250 or CR-300. Implements
+    the `specio.spectrometers.SpecRadiometer`
+
+    Raises
+    ------
+    serial.SerialException
+        if `CRSpectrometer.discovery` fails or there are other serial port issues.
+    CommandError
+        A error was encountered in parsing the result of the serial command to
+        the hardware device.
+    """
+
+    @classmethod
+    def discover(cls) -> "CRColorimeter":
+        """Attempt automatic discovery of the CR serial port and return the
+        CR spectrometer object.
+
+        Returns
+        -------
+        CRSpectrometer
+            A successfully automatic CS2000 object.
+
+        Raises
+        ------
+        serial.SerialException
+            If no serial port can be automatically linked.
+        """
+        if platform.system() == "Darwin":
+            port_list = list(serial.tools.list_ports.grep("usbmodem"))
+        elif platform.system() == "Windows":
+            port_list = list(serial.tools.list_ports.grep("Colorimetry"))
+        elif platform.system() == "Unix":
+            raise NotImplementedError("CR discovery is not implemented for Unix")
+        elif platform.system() == "Linux":
+            port_list = list(serial.tools.list_ports.grep("ACM"))
+        else:
+            port_list = serial.tools.list_ports.comports()
+
+        if len(port_list) == 0:
+            raise serial.SerialException("No serial ports found on machine")
+
+        for p in port_list:
+            try:
+                device = p.device  # type: ignore
+                sp = serial.Serial(device, **_CR_SERIAL_KWARGS)
+                sp.readall()
+                sp.write(b"RC InstrumentType\n")
+
+                response = sp.readline()
+                if response.startswith(b"OK:0:RC InstrumentType:1"):
+                    sp.close()
+                    cr = CRColorimeter(device)
+                    return cr
+            except:  # noqa: S112,E722
+                continue
+
+        raise serial.SerialException(
+            textwrap.dedent(
+                """Could not connect to any colorimetry research colorimeter.
+                Check connection and device power."""
+            )
+        )
+
+    def __init__(
+        self,
+        port: str,
+    ):
+        """
+        Construct CR Controller Obj
+        """
+        self.__last_cmd_time: float = 0
+        if isinstance(port, str):
+            self._port = serial.Serial(port, **_CR_SERIAL_KWARGS)
+
+        self._warn_filter_selection()
+
+    @property
+    def manufacturer(self) -> str:
+        """Return mfr name"""
+        return "Colorimetry Research"
+
+    @property
+    def firmware(self) -> str:
+        """The firmware version on the hardware
+
+        Returns
+        -------
+        str
+        """
+        if not hasattr(self, "_firmware") or self._firmware is None:
+            response = self._write_cmd("RC Firmware")
+            self._firmware = response.arguments[0]
+        return self._firmware
+
+    @property
+    def aperture(self):
+        """
+        Get spectrometer aperture value
+        """
+        if not hasattr(self, "_aperture") or self._aperture is None:
+            response = self._write_cmd("RS Aperture")
+            self._aperture = response.arguments[0]
+        return self._aperture
+
+    @property
+    def serial_number(self) -> str:
+        """The hardware serial number
+
+        Returns
+        -------
+        str
+        """
+        if not hasattr(self, "_sn") or self._sn is None:
+            response = self._write_cmd("RC ID")
+            self._sn = response.arguments[0]
+        return self._sn
+
+    @cached_property
+    def available_filters(self) -> bidict.bidict[int, str]:
+        response = self._write_cmd("RC Filter")
+        filters = bidict.bidict()
+        for arg in response.arguments:
+            arg = cast(bytes, arg)
+            items = arg.decode().strip().split(",")
+            filters[int(items[0])] = items[1]
+        filters[0] = "None"
+        return filters
+
+    @property
+    def current_filters(self) -> tuple[int, int, int]:
+        response = self._write_cmd("RS Filter")
+        arguments = response.arguments[0].split(",")
+
+        out = []
+        for f in arguments:
+            out += [self.available_filters.inverse[f]]
+        return tuple(out)
+
+    @current_filters.setter
+    def current_filters(self, filters: tuple[int, ...]):
+        if len(filters) > 3:
+            RuntimeError("CR-100/120 only supports up to 3 filter selectons!")
+        for i in range(1, 4):
+            cur_filter_id = filters[i - 1] if i <= len(filters) else -1
+            self._write_cmd(f"SM Filter{i:.0f} {cur_filter_id:.0f}")
+
+        self._warn_filter_selection()
+
+    def _warn_filter_selection(self):
+        cur = self.current_filters
+        if len(cur) == 0:
+            specio_warning("Check colorimeter has no active filters.")
+        elif len(cur) == 1:
+            specio_warning(
+                f"Check colorimeter has one filter: {self.available_filters[cur[0]]}"
+            )
+        else:
+            filters_string = ", ".join([self.available_filters[f] for f in cur])
+            specio_warning(f"Check colorimeter has stacked filters: {filters_string}.")
+
+    @cached_property
+    def model(self) -> str:
+        """The model name
+
+        Returns
+        -------
+        str
+        """
+        response = self._write_cmd1("RC Model")
+        return response.arguments[0]
+
+    @property
+    def instrument_type(self):
+        """
+        Check that the connected device is a spectrometer
+        """
+        if not hasattr(self, "_instrument_type") or self._instrument_type is None:
+            response = self._write_cmd("RC InstrumentType")
+            i_type = InstrumentType(response.arguments[0])
+            self._instrument_type = i_type
+
+        return self._instrument_type
+
+    def __clear_buffer(self):
+        """
+        Clear input buffer
+        """
+        t = self._port.timeout
+        self._port.apply_settings({"timeout": _DEFAULT_SERIAL_TIMEOUT})
+        self._port.readall()
+        self._port.apply_settings({"timeout": t})
+
+    def _write_cmd(self, command: str) -> CommandResponse:
+        """
+        Write cmd to serial port
+        """
+        log = logging.getLogger("specio.CR")
+        log.debug("Sending CMD: %s", command)
+
+        enc_command: bytes = (command + "\n").encode()
+        if self.__last_cmd_time + _COMMAND_TIMEOUT > time.time():
+            time.sleep(
+                max(
+                    self.__last_cmd_time + _COMMAND_TIMEOUT + 0.001 - time.time(),
+                    0,
+                )
+            )
+
+        self.__clear_buffer()
+        self._port.write(enc_command)
+        self.__last_cmd_time = time.time()
+
+        response = self._port.readline()
+
+        response = self._parse_response(response)
+
+        if response.type == ResponseType.ERROR:
+            raise CommandError(response, response.arguments[0])
+        else:
+            return response
+
+    def _parse_response(self, data: bytes) -> CommandResponse:
+        """
+        Parse CR response string
+        """
+        response = data.strip().split(b":")
+
+        args = []
+        if (
+            response[3].decode().isnumeric()
+            and int(response[3]) > 0
+            and self._port.in_waiting
+        ):
+            for _ in range(int(response[3])):
+                n_response = self._port.readline()
+                args.append(n_response)
+        else:
+            args = [r.decode() for r in response[3:]]
+
+        return CommandResponse(
+            type=ResponseType(response[0]),
+            code=ResponseCode(int(response[1].decode())),
+            description=response[2].decode(),
+            arguments=args,
+        )
+
+    def _raw_measure(self) -> RawColorimeterMeasurement:
+        """
+        Make spectral measurement with CR
+        """
+        t = self._port.timeout
+
+        self._port.apply_settings({"timeout": 10})
+        response = self._write_cmd("M")
+
+        self._port.apply_settings({"timeout": 0.21})
+        response = self._write_cmd("RM XYZ")
+
+        XYZ = np.asarray([float(s) for s in response.arguments[0].split(",")])
+
+        exposure = self._write_cmd("RM Exposure").arguments[0]
+        exMatch = re.match(r"\d*\.?\d*", exposure)
+        exposure = float(exMatch.group()) / 1000 if exMatch else -1
+
+        self._port.apply_settings({"timeout": t})
+
+        return RawColorimeterMeasurement(
+            XYZ=XYZ,
+            device_id=self.readable_id,
             exposure=exposure,
         )

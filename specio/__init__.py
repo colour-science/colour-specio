@@ -4,7 +4,7 @@ Specio
 Provides support for interacting with various hardware spectrometers.
 """
 
-__version__ = "0.2.9"
+__version__ = "0.4.0a0"
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
 __license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
@@ -13,56 +13,21 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 
-import re
-
-from specio.colorimeters.common import (
-    ColorimeterMeasurement,
-    VirtualColorimeter,
-)
-
-from .spectrometers.common import (
+from .common.colorimeters import ColorimeterMeasurement, VirtualColorimeter
+from .common.spectrometers import (
     SPDMeasurement,
     VirtualSpectrometer,
 )
+from .device_implementations import colorimetry_research, konica_minolta
 
 __all__ = [
     "SPDMeasurement",
     "VirtualSpectrometer",
     "ColorimeterMeasurement",
     "VirtualColorimeter",
-    "SuspiciousFileOperationError",
-    "get_valid_filename",
+    "colorimetry_research",
+    "konica_minolta",
 ]
-
-
-class SuspiciousFileOperationError(Exception):
-    """Generated when a user does something suspicious with file names"""
-
-
-def get_valid_filename(name: str) -> str:
-    """Clean / validate filename string
-
-    Parameters
-    ----------
-    name : str
-        The string to be cleaned for file name validity
-
-    Returns
-    -------
-    str
-        A clean filename
-
-    Raises
-    ------
-    SuspiciousFileOperation
-        if the cleaned string looks like a spooky filepath (i.e. '/', '.', etc...)
-    """
-    s = str(name).strip().replace(" ", "_")
-    s = re.sub(r"(?u)[^-\w.]", "", s)
-    s = re.sub(r"_+-+_+", "__", s)
-    if s in {"", ".", ".."}:
-        raise SuspiciousFileOperationError(f"Could not derive file name from '{name}'")
-    return s
 
 
 def _config__specio_logger() -> None:

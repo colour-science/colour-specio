@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "colour-specio"
 packages = [{ include = "specio" }]
-version = "0.4.0a0"
+version = "0.4.1"
 description = "Instrument control for spectrometers"
 authors = ["Tucker <tucker@tjdcs.dev>"]
 keywords = ["colour-science", "spectrometer", "instrument control"]
@@ -16,8 +16,8 @@ csmf_doctor = 'specio.scripts.csmf_doctor:main'
 csmf_anonymize = 'specio.scripts.csmf_anonymize:main'
 
 [tool.poetry.dependencies]
-python = "^3.10,<3.13"
-colour-science = "^0.4.2"
+python = ">=3.12,<3.14"
+colour-science = "^0.4.6"
 numpy = "^1.23.1"
 pyserial = "^3.5"
 aenum = "^3.1.11"

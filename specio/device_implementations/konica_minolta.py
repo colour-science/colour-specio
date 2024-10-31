@@ -19,9 +19,7 @@ from colour import SpectralDistribution, SpectralShape
 from serial.tools import list_ports
 from serial.tools.list_ports_common import ListPortInfo
 
-from specio.spectrometers.common import RawSPDMeasurement, SpecRadiometer
-
-__all__ = []
+from specio.common import RawSPDMeasurement, SpecRadiometer
 
 
 class ResponseCode(aenum.MultiValueEnum):
@@ -66,9 +64,7 @@ class CommandResponse(NamedTuple):
 class WriteCommandError(Exception):
     """Error thrown when there is an issue writing commands to a CS2000"""
 
-    def __init__(
-        self, message: str, cr: CommandResponse, *args: object
-    ) -> None:
+    def __init__(self, message: str, cr: CommandResponse, *args: object) -> None:
         super().__init__(message, *args)
         self.command_response = cr
 
@@ -113,9 +109,7 @@ class SpeedModeSetting:
             time = float(blist[1].decode()) / 1e6
             nd_mode = InternalNDMode(blist[2])
 
-        return SpeedModeSetting(
-            mode=mode, nd_mode=nd_mode, integration_time=time
-        )
+        return SpeedModeSetting(mode=mode, nd_mode=nd_mode, integration_time=time)
 
     def __init__(
         self,
@@ -278,9 +272,7 @@ class CS2000(SpecRadiometer):
     def _clear_buffer(self):
         self._port.read_all()
 
-    def _write_cmd(
-        self, cmd: str | bytes, time_out: float = 0
-    ) -> CommandResponse:
+    def _write_cmd(self, cmd: str | bytes, time_out: float = 0) -> CommandResponse:
         if time_out > 0:
             old_timeout = self._port.timeout
             self._port.timeout = time_out
@@ -303,12 +295,9 @@ class CS2000(SpecRadiometer):
             self._port.timeout = old_timeout
 
         if code.value[0:2] != b"OK":
-            additional_info = (
-                code.values[1] if len(code.values) >= 2 else code.value
-            )
+            additional_info = code.values[1] if len(code.values) >= 2 else code.value
             raise WriteCommandError(
-                "There was an error with the CS2000 command. "
-                + additional_info,
+                "There was an error with the CS2000 command. " + additional_info,
                 command_response,
             )
 
@@ -356,12 +345,10 @@ class CS2000(SpecRadiometer):
                     "Sync mode Internal requires frequency between 20Hz and 200Hz"
                 )
 
-            update_cmd_str += (
-                b"," + f"{round(new_mode.frequency * 100):.0f}".encode()
-            )
+            update_cmd_str += b"," + f"{round(new_mode.frequency * 100):.0f}".encode()
 
         del self._sync_speed_setting
-        self._write_cmd(update_cmd_str)
+        self._write_cmd(bytes(update_cmd_str))
 
     @property
     def speedmode(self):

@@ -8,12 +8,12 @@ from colour.colorimetry.spectrum import MultiSpectralDistributions
 from colour.hints import NDArray
 from numpy import ndarray
 
+from specio.common import SPDMeasurement
 from specio.serialization.measurements import (
     spd_measurement_from_bytes,
     spd_measurement_to_proto,
 )
 from specio.serialization.protobuf import measurements_pb2
-from specio.spectrometers.common import SPDMeasurement
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"

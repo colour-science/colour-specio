@@ -2,7 +2,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
+from specio.common import VirtualSpectrometer
 from specio.scripts import csmf_anonymize
 from specio.serialization.csmf import (
     CSMF_Data,
@@ -11,7 +11,6 @@ from specio.serialization.csmf import (
     load_csmf_file,
     save_csmf_file,
 )
-from specio.spectrometers.common import VirtualSpectrometer
 
 
 @pytest.fixture(scope="class")

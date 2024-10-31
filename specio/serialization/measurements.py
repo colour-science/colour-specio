@@ -8,9 +8,8 @@ from typing import cast
 import numpy as np
 from colour import SpectralDistribution, SpectralShape
 
-from specio.colorimeters.common import ColorimeterMeasurement
+from specio.common import ColorimeterMeasurement, SPDMeasurement
 from specio.serialization.protobuf import common_pb2, measurements_pb2
-from specio.spectrometers.common import SPDMeasurement
 
 
 def colorimeter_measurement_to_proto(
@@ -145,11 +144,7 @@ def spd_measurement_from_bytes(
     buffer = cast(measurements_pb2.SPD_Measurement, buffer)
 
     spd = SpectralDistribution(
-        (
-            buffer.spd.values
-            if len(buffer.spd.values) > 0
-            else buffer.spd.values_old
-        ),
+        (buffer.spd.values if len(buffer.spd.values) > 0 else buffer.spd.values_old),
         domain=SpectralShape(
             buffer.spd.shape.start, buffer.spd.shape.end, buffer.spd.shape.step
         ),
