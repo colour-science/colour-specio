@@ -6,7 +6,7 @@ import textwrap
 from abc import ABC, abstractmethod
 from ctypes import ArgumentError
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from functools import cached_property
 from typing import Self, final
 
@@ -17,7 +17,7 @@ from colour.colorimetry.dominant import (
     dominant_wavelength,
 )
 from colour.colorimetry.tristimulus_values import sd_to_XYZ
-from colour.hints import NDArrayFloat
+from colour.hints import ArrayLike
 from colour.models.cie_xyy import XYZ_to_xy
 from colour.temperature.ohno2013 import XYZ_to_CCT_Ohno2013
 
@@ -45,11 +45,12 @@ class ColorimeterMeasurement:
 
     def __init__(
         self,
-        XYZ: NDArrayFloat,
+        XYZ: ArrayLike,
         exposure: float,
         device_id: str,
         no_compute: bool = False,
     ):
+        XYZ = np.asarray(XYZ)
         if XYZ.size != (3,):
             RuntimeError("XYZ must be size (3,)")
 
@@ -67,7 +68,7 @@ class ColorimeterMeasurement:
                 dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0]
             )
             self.purity: float = colorimetric_purity(self.xy, (1 / 3, 1 / 3))  # type: ignore
-            self.time = datetime.now(tz=UTC)
+            self.time = datetime.now().astimezone()
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, ColorimeterMeasurement):

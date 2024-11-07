@@ -86,7 +86,7 @@ class SPDMeasurement:
             self.dominant_wl = float(dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0])
             self.purity: float = colorimetric_purity(self.xy, (1 / 3, 1 / 3))  # type: ignore
             self.power: float = np.asarray(self.spd.values).sum()
-            self.time = datetime
+            self.time = datetime.now().astimezone()
 
     def __str__(self) -> str:
         """

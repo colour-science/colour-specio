@@ -59,17 +59,6 @@ class InstrumentType(MultiValueEnum):
     SPECTRORADIOMETER = 2, "2"
 
 
-class MeasurementSpeed(MultiValueEnum):
-    """
-    Controls the measurement speed when the CR Exposure Mode is set to "auto"
-    """
-
-    SLOW: Self = 0, "0", "slow"  # type: ignore
-    NORMAL: Self = 1, "1", "normal"  # type: ignore
-    FAST: Self = 2, "2", "fast"  # type: ignore
-    FAST_2X: Self = 3, "3", "2x fast"  # type: ignore
-
-
 class Model(Enum):
     """
     Identifies the CR model
@@ -193,6 +182,16 @@ class CRSpectrometer(SpecRadiometer):
         the hardware device.
     """
 
+    class MeasurementSpeed(MultiValueEnum):
+        """
+        Controls the measurement speed when the CR Exposure Mode is set to "auto"
+        """
+
+        SLOW: Self = 0, "0", "slow"  # type: ignore
+        NORMAL: Self = 1, "1", "normal"  # type: ignore
+        FAST: Self = 2, "2", "fast"  # type: ignore
+        FAST_2X: Self = 3, "3", "2x fast"  # type: ignore
+
     @classmethod
     def discover(cls) -> "CRSpectrometer":
         """Attempt automatic discovery of the CR serial port and return the
@@ -295,7 +294,9 @@ class CRSpectrometer(SpecRadiometer):
         """
         response = self._write_cmd("SM ExposureMode 0")
         response = self._write_cmd("RS Speed")
-        self._measurement_speed = MeasurementSpeed(response.arguments[0].lower())
+        self._measurement_speed = CRSpectrometer.MeasurementSpeed(
+            response.arguments[0].lower()
+        )
         return self._measurement_speed
 
     @measurement_speed.setter
@@ -327,16 +328,13 @@ class CRSpectrometer(SpecRadiometer):
         return self._sn
 
     @property
-    def ExposureMultiplier(self) -> int:
-        if not hasattr(self, "_ExposureX"):
-            response = self._write_cmd("RM ExposureX")
-            self._ExposureX = int(response.arguments[0])
-        return self._ExposureX
+    def average_samples(self) -> int:
+        response = self._write_cmd("RM ExposureX")
+        return int(response.arguments[0])
 
-    @ExposureMultiplier.setter
-    def ExposureMultiplier(self, multiplier: int) -> None:
+    @average_samples.setter
+    def average_samples(self, multiplier: int) -> None:
         self._write_cmd(f"SM ExposureX {multiplier:d}")
-        del self._ExposureX
 
     @cached_property
     def model(self) -> str:
@@ -425,11 +423,11 @@ class CRSpectrometer(SpecRadiometer):
         )
 
     def _apply_measurementspeed_timeout(self):
-        if self.measurement_speed is MeasurementSpeed.SLOW:
+        if self.measurement_speed is CRSpectrometer.MeasurementSpeed.SLOW:
             self._port.apply_settings({"timeout": 70})
-        elif self.measurement_speed is MeasurementSpeed.NORMAL:
+        elif self.measurement_speed is CRSpectrometer.MeasurementSpeed.NORMAL:
             self._port.apply_settings({"timeout": 21})
-        elif self.measurement_speed is MeasurementSpeed.FAST:
+        elif self.measurement_speed is CRSpectrometer.MeasurementSpeed.FAST:
             self._port.apply_settings({"timeout": 14})
         else:
             self._port.apply_settings({"timeout": 6})
@@ -625,6 +623,11 @@ class CRColorimeter(Colorimeter):
 
         self._warn_filter_selection()
 
+    @property
+    def current_filters_names(self) -> tuple[str, str, str]:
+        # ignore type error. Cannot interpret list builder size.
+        return tuple([self.available_filters[k] for k in self.current_filters])  # type: ignore
+
     def _warn_filter_selection(self):
         cur = self.current_filters
         if len(cur) == 0:
@@ -645,8 +648,23 @@ class CRColorimeter(Colorimeter):
         -------
         str
         """
-        response = self._write_cmd1("RC Model")
+        response = self._write_cmd("RC Model")
         return response.arguments[0]
+
+    @property
+    def average_samples(self) -> int:
+        """
+        Check that the connected device is a spectrometer
+        """
+
+        response = self._write_cmd("RS ExposureX")
+        return int(response.arguments[0])
+
+    @average_samples.setter
+    def average_samples(self, num: int):
+        num = num if num > 0 else 1
+        num = num if num < 50 else 50
+        self._write_cmd(f"SM ExposureX {num:d}")
 
     @property
     def instrument_type(self):
@@ -729,7 +747,7 @@ class CRColorimeter(Colorimeter):
         """
         t = self._port.timeout
 
-        self._port.apply_settings({"timeout": 10})
+        self._port.apply_settings({"timeout": 10 + 0.5 * self.average_samples})
         response = self._write_cmd("M")
 
         self._port.apply_settings({"timeout": 0.21})

@@ -4,54 +4,54 @@ package specio.proto;
 import "specio/serialization/protobuf/common.proto";
 
 message Colorimeter_Measurement {
-    XYZ_value XYZ = 1;
-    xy_value xy = 2;
-    cct_value cct = 5;
-    double dominant_wl = 6;
-    double purity = 8;
-    Timestamp time = 7;
-    
-    double exposure = 16;
-    string colorimeter_id = 17;
+  XYZ_value XYZ = 1;
+  xy_value xy = 2;
+  cct_value cct = 5;
+  double dominant_wl = 6;
+  double purity = 8;
+  Timestamp time = 7;
+
+  double exposure = 16;
+  string colorimeter_id = 17;
 }
 
 message SPD_Measurement {
-    SpectralDistribution spd = 1;
-    double exposure = 2;
-    XYZ_value XYZ = 3;
-    xy_value xy = 4;
-    cct_value cct = 5;
-    double dominant_wl = 6;
-    double purity = 10;
-    double power = 7;
-    string spectrometer_id = 8;
+  SpectralDistribution spd = 1;
+  double exposure = 2;
+  XYZ_value XYZ = 3;
+  xy_value xy = 4;
+  cct_value cct = 5;
+  double dominant_wl = 6;
+  double purity = 10;
+  double power = 7;
+  string spectrometer_id = 8;
 
-    Timestamp time = 9;
+  Timestamp time = 9;
 
-    reserved 16;
+  reserved 16;
 }
 
 message CSFM_File {
-    message Measurement {
-        optional SPD_Measurement spd = 1;
-        optional Colorimeter_Measurement xyz = 2;
-    };
-    
-    message TestColor {
-        repeated uint32 c = 1;
-        repeated float f = 2;
-    }
+  message Measurement {
+    optional SPD_Measurement spd = 1;
+    optional Colorimeter_Measurement xyz = 2;
+  }
 
-    repeated Measurement measurements = 4;
-    repeated SPD_Measurement spd_measurements = 1;    
-    
-    repeated TestColor test_colors = 3;
-    repeated int32 order = 2;
+  message TestColor {
+    repeated uint32 c = 1;
+    repeated float f = 2;
+  }
 
-    string notes = 16;
-    string author = 17;
-    string location = 18;
-    string software = 19;
-    
-    bytes ancillary = 20;
+  repeated Measurement measurements = 4;
+  repeated SPD_Measurement spd_measurements = 1;
+
+  repeated TestColor test_colors = 3;
+  repeated int32 order = 2;
+
+  string notes = 16;
+  string author = 17;
+  string location = 18;
+  string software = 19;
+
+  bytes ancillary = 20;
 }
