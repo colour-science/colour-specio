@@ -329,12 +329,14 @@ class CRSpectrometer(SpecRadiometer):
 
     @property
     def average_samples(self) -> int:
-        response = self._write_cmd("RM ExposureX")
+        response = self._write_cmd("RS ExposureX")
         return int(response.arguments[0])
 
     @average_samples.setter
-    def average_samples(self, multiplier: int) -> None:
-        self._write_cmd(f"SM ExposureX {multiplier:d}")
+    def average_samples(self, num: int) -> None:
+        num = num if num > 0 else 1
+        num = num if num < 50 else 50
+        self._write_cmd(f"SM ExposureX {num:d}")
 
     @cached_property
     def model(self) -> str:
@@ -424,13 +426,15 @@ class CRSpectrometer(SpecRadiometer):
 
     def _apply_measurementspeed_timeout(self):
         if self.measurement_speed is CRSpectrometer.MeasurementSpeed.SLOW:
-            self._port.apply_settings({"timeout": 70})
+            t = 70
         elif self.measurement_speed is CRSpectrometer.MeasurementSpeed.NORMAL:
-            self._port.apply_settings({"timeout": 21})
+            t = 21
         elif self.measurement_speed is CRSpectrometer.MeasurementSpeed.FAST:
-            self._port.apply_settings({"timeout": 14})
+            t = 14
         else:
-            self._port.apply_settings({"timeout": 6})
+            t = 7
+        t *= self.average_samples
+        self._port.apply_settings({"timeout": t})
 
     def _raw_measure(self) -> RawSPDMeasurement:
         """
