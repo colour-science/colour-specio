@@ -25,8 +25,8 @@ __all__ = [
     "CSMF_Data",
     "CSMF_Metadata",
     "csmf_data_to_buffer",
-    "save_csmf_file",
     "load_csmf_file",
+    "save_csmf_file",
 ]
 
 

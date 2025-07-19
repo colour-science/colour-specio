@@ -1,31 +1,26 @@
-# %%
-from colour import SpectralShape, sd_zeros
-from specio import colorimetry_research as cr
-from specio.common.spectrometers import SPDMeasurement
+import time
 
-spectrometer = cr.CRSpectrometer.discover()
+from specio.spectrometers import CRSpectrometer
 
-spectrometer.average_samples = 2  # Average 3 samples
-spectrometer.measurement_speed = spectrometer.MeasurementSpeed.FAST_2X
+cr = CRSpectrometer.discover()
 
-print(spectrometer.measure())
+cr.measurement_speed = cr.MeasurementSpeed.FAST_2X
+cr.average_samples = 1
 
-# %% with error handling
-try:
-    measurement = spectrometer.measure()
-except cr.CommandError as e:
-    if (
-        e.response.code is cr.ResponseCode.LIGHT_INTENSITY_UNMEASURABLE
-        or e.response.code is cr.ResponseCode.LIGHT_INTENSITY_TOO_LOW
-    ):
-        # Make a fake measurement
-        shape = SpectralShape(380, 780, 1)
-        measurement = SPDMeasurement(
-            sd_zeros(shape=shape),
-            exposure=0,
-            spectrometer_id="My Project Fake Measurement",
-        )
-    else:
-        raise
+NUM_MEASUREMENTS = 3
+print(f"Measuring {NUM_MEASUREMENTS} times...")
 
-print(measurement)
+t1 = time.perf_counter()
+for i in range(NUM_MEASUREMENTS):
+    t = cr.measure()
+    print(t)
+    t2 = time.perf_counter()
+    print(f"Running Average: {(t2 - t1) / (i + 1):.2f} seconds")
+t2 = time.perf_counter()
+
+print(f"Measured {NUM_MEASUREMENTS} times in {t2 - t1:.2f} seconds.")
+print(f"Average time per measurement: {(t2 - t1) / NUM_MEASUREMENTS:.2f} seconds.")
+print(f"Measurement speed: {cr.measurement_speed.name}")
+print(f"Device firmware: {cr.firmware}")
+
+pass

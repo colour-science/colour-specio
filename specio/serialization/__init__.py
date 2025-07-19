@@ -36,7 +36,7 @@ __all__ = [
     "save_csmf_file",
     # Measurement serialization
     "colorimeter_measurement_from_bytes",
-    "colorimeter_measurement_to_bytes", 
+    "colorimeter_measurement_to_bytes",
     "colorimeter_measurement_to_proto",
     "spd_measurement_from_bytes",
     "spd_measurement_to_bytes",

@@ -14,10 +14,11 @@ from functools import cached_property
 from types import MappingProxyType
 from typing import Self, cast, final
 
+from aenum import MultiValueEnum
 import bidict
 import numpy as np
+import serial
 import serial.tools.list_ports
-from aenum import MultiValueEnum
 from colour import SpectralDistribution, SpectralShape
 
 from specio.common import RawSPDMeasurement, SpecRadiometer
@@ -33,14 +34,14 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 __all__ = [
+    "CRColorimeter",
+    "CRSpectrometer",
+    "CommandError",
+    "CommandResponse",
     "InstrumentType",
     "Model",
-    "ResponseType", 
     "ResponseCode",
-    "CommandResponse",
-    "CRSpectrometer",
-    "CRColorimeter",
-    "CommandError",
+    "ResponseType",
 ]
 
 
@@ -150,10 +151,19 @@ class ResponseCode(int, MultiValueEnum):
     RESERVED = -999
 
     @classmethod
-    def _missing_(cls, _: object):
+    def _missing_(cls, _: object) -> "ResponseCode":
         """
-        Set the default error code to RESERVED
-        =======================================
+        Set the default error code to RESERVED when an unknown code is encountered.
+
+        Parameters
+        ----------
+        _ : object
+            The unknown value that was not found in the enum.
+
+        Returns
+        -------
+        ResponseCode
+            The RESERVED error code as a fallback.
         """
         return cls.RESERVED
 
@@ -212,7 +222,7 @@ class CRSpectrometer(SpecRadiometer):
         Returns
         -------
         CRSpectrometer
-            A successfully automatic CS2000 object.
+            A successfully discovered CR spectrometer object.
 
         Raises
         ------
@@ -254,7 +264,7 @@ class CRSpectrometer(SpecRadiometer):
                     sp.close()
                     cr = CRSpectrometer(device)
                     return cr
-            except:  # noqa: S112,E722
+            except:  # noqa: E722
                 continue
 
         raise serial.SerialException(
@@ -268,9 +278,22 @@ class CRSpectrometer(SpecRadiometer):
         self,
         port: str,
         speed: MeasurementSpeed = MeasurementSpeed.NORMAL,
-    ):
+    ) -> None:
         """
-        Construct CR Controller Obj
+        Initialize a CR spectrometer controller.
+
+        Parameters
+        ----------
+        port : str
+            The serial port device path (e.g., '/dev/ttyUSB0', 'COM3').
+        speed : MeasurementSpeed, optional
+            The measurement speed setting for automatic exposure mode.
+            Default is MeasurementSpeed.NORMAL.
+
+        Raises
+        ------
+        serial.SerialException
+            If the serial port cannot be opened or configured.
         """
         self.__last_cmd_time: float = 0
         if isinstance(port, str):
@@ -312,14 +335,37 @@ class CRSpectrometer(SpecRadiometer):
         return self._measurement_speed
 
     @measurement_speed.setter
-    def measurement_speed(self, speed: MeasurementSpeed):
+    def measurement_speed(self, speed: MeasurementSpeed) -> None:
+        """
+        Set the automatic measurement speed of the hardware.
+
+        Parameters
+        ----------
+        speed : MeasurementSpeed
+            The desired measurement speed setting.
+
+        Raises
+        ------
+        CommandError
+            If the speed setting command fails.
+        """
         _ = self._write_cmd(f"SM Speed {speed.values[0]}")
         self._measurement_speed = speed
 
     @property
-    def aperture(self):
+    def aperture(self) -> str:
         """
-        Get spectrometer aperture value
+        Get the current aperture setting of the spectrometer.
+
+        Returns
+        -------
+        str
+            The aperture identifier or description from the hardware.
+
+        Raises
+        ------
+        CommandError
+            If the aperture query command fails.
         """
         if not hasattr(self, "_aperture") or self._aperture is None:
             response = self._write_cmd("RS Aperture")
@@ -362,9 +408,19 @@ class CRSpectrometer(SpecRadiometer):
         return response.arguments[0]
 
     @property
-    def instrument_type(self):
+    def instrument_type(self) -> InstrumentType:
         """
-        Check that the connected device is a spectrometer
+        Get the instrument type of the connected device.
+
+        Returns
+        -------
+        InstrumentType
+            The type of the connected instrument (should be SPECTRORADIOMETER).
+
+        Raises
+        ------
+        CommandError
+            If the instrument type query command fails.
         """
         if not hasattr(self, "_instrument_type") or self._instrument_type is None:
             response = self._write_cmd("RC InstrumentType")
@@ -373,9 +429,13 @@ class CRSpectrometer(SpecRadiometer):
 
         return self._instrument_type
 
-    def __clear_buffer(self):
+    def __clear_buffer(self) -> None:
         """
-        Clear input buffer
+        Clear the serial port input buffer to remove any pending data.
+
+        This method temporarily sets a short timeout, reads all pending data,
+        then restores the original timeout. Used to ensure clean communication
+        before sending new commands.
         """
         t = self._port.timeout
         self._port.apply_settings({"timeout": _DEFAULT_SERIAL_TIMEOUT})
@@ -384,7 +444,22 @@ class CRSpectrometer(SpecRadiometer):
 
     def _write_cmd(self, command: str) -> CommandResponse:
         """
-        Write cmd to serial port
+        Send a command to the CR spectrometer and parse the response.
+
+        Parameters
+        ----------
+        command : str
+            The command string to send to the device (without newline terminator).
+
+        Returns
+        -------
+        CommandResponse
+            Parsed response from the device containing type, code, description and arguments.
+
+        Raises
+        ------
+        CommandError
+            If the device returns an error response.
         """
         log = logging.getLogger("specio.CR")
         log.debug("Sending CMD: %s", command)
@@ -413,7 +488,17 @@ class CRSpectrometer(SpecRadiometer):
 
     def _parse_response(self, data: bytes) -> CommandResponse:
         """
-        Parse CR response string
+        Parse the raw response bytes from the CR device into a structured format.
+
+        Parameters
+        ----------
+        data : bytes
+            Raw response data from the serial port.
+
+        Returns
+        -------
+        CommandResponse
+            Structured response containing parsed type, code, description and arguments.
         """
         response = data.strip().split(b":")
 
@@ -436,7 +521,13 @@ class CRSpectrometer(SpecRadiometer):
             arguments=args,
         )
 
-    def _apply_measurementspeed_timeout(self):
+    def _apply_measurementspeed_timeout(self) -> None:
+        """
+        Apply appropriate serial timeout based on current measurement speed and averaging.
+
+        Sets the serial port timeout to accommodate the expected measurement duration
+        based on the measurement speed setting and number of averaged samples.
+        """
         if self.measurement_speed is CRSpectrometer.MeasurementSpeed.SLOW:
             t = 70
         elif self.measurement_speed is CRSpectrometer.MeasurementSpeed.NORMAL:
@@ -450,7 +541,17 @@ class CRSpectrometer(SpecRadiometer):
 
     def _raw_measure(self) -> RawSPDMeasurement:
         """
-        Make spectral measurement with CR
+        Perform a spectral measurement and return raw spectral power distribution.
+
+        Returns
+        -------
+        RawSPDMeasurement
+            Raw measurement data containing spectral power distribution, spectrometer ID, and exposure time.
+
+        Raises
+        ------
+        CommandError
+            If the measurement command fails or times out.
         """
         t = self._port.timeout
 
@@ -491,13 +592,14 @@ class CRSpectrometer(SpecRadiometer):
 
 @final
 class CRColorimeter(Colorimeter):
-    """Interface with a colorimetry research brand CR-250 or CR-300. Implements
-    the `specio.spectrometers.SpecRadiometer`
+    """Interface with a colorimetry research brand CR-250 or CR-300 in colorimeter mode.
+    
+    Implements the `specio.colorimeters.Colorimeter` interface for direct XYZ measurements.
 
     Raises
     ------
     serial.SerialException
-        if `CRSpectrometer.discovery` fails or there are other serial port issues.
+        if `CRColorimeter.discover` fails or there are other serial port issues.
     CommandError
         A error was encountered in parsing the result of the serial command to
         the hardware device.
@@ -506,12 +608,12 @@ class CRColorimeter(Colorimeter):
     @classmethod
     def discover(cls) -> "CRColorimeter":
         """Attempt automatic discovery of the CR serial port and return the
-        CR spectrometer object.
+        CR colorimeter object.
 
         Returns
         -------
-        CRSpectrometer
-            A successfully automatic CS2000 object.
+        CRColorimeter
+            A successfully discovered CR colorimeter object.
 
         Raises
         ------
@@ -544,7 +646,7 @@ class CRColorimeter(Colorimeter):
                     sp.close()
                     cr = CRColorimeter(device)
                     return cr
-            except:  # noqa: S112,E722
+            except:  # noqa: E722
                 continue
 
         raise serial.SerialException(
@@ -557,9 +659,19 @@ class CRColorimeter(Colorimeter):
     def __init__(
         self,
         port: str,
-    ):
+    ) -> None:
         """
-        Construct CR Controller Obj
+        Initialize a CR colorimeter controller.
+
+        Parameters
+        ----------
+        port : str
+            The serial port device path (e.g., '/dev/ttyUSB0', 'COM3').
+
+        Raises
+        ------
+        serial.SerialException
+            If the serial port cannot be opened or configured.
         """
         self.__last_cmd_time: float = 0
         if isinstance(port, str):
@@ -586,9 +698,19 @@ class CRColorimeter(Colorimeter):
         return self._firmware
 
     @property
-    def aperture(self):
+    def aperture(self) -> str:
         """
-        Get spectrometer aperture value
+        Get the current aperture setting of the colorimeter.
+
+        Returns
+        -------
+        str
+            The aperture identifier or description from the hardware.
+
+        Raises
+        ------
+        CommandError
+            If the aperture query command fails.
         """
         if not hasattr(self, "_aperture") or self._aperture is None:
             response = self._write_cmd("RS Aperture")
@@ -610,10 +732,24 @@ class CRColorimeter(Colorimeter):
 
     @cached_property
     def available_filters(self) -> bidict.bidict[int, str]:
+        """
+        Get the mapping of available optical filters for the colorimeter.
+
+        Returns
+        -------
+        bidict.bidict[int, str]
+            Bidirectional dictionary mapping filter IDs to filter names.
+            ID 0 always maps to "None" for no filter selection.
+
+        Raises
+        ------
+        CommandError
+            If the filter query command fails.
+        """
         response = self._write_cmd("RC Filter")
         filters = bidict.bidict()
         for arg in response.arguments:
-            arg = cast(bytes, arg)
+            arg = cast("bytes", arg)
             items = arg.decode().strip().split(",")
             filters[int(items[0])] = items[1]
         filters[0] = "None"
@@ -621,6 +757,20 @@ class CRColorimeter(Colorimeter):
 
     @property
     def current_filters(self) -> tuple[int, int, int]:
+        """
+        Get the currently selected filter IDs for all three filter positions.
+
+        Returns
+        -------
+        tuple[int, int, int]
+            Tuple of three filter IDs representing the current filter selection
+            for positions 1, 2, and 3.
+
+        Raises
+        ------
+        CommandError
+            If the filter status query command fails.
+        """
         response = self._write_cmd("RS Filter")
         arguments = response.arguments[0].split(",")
 
@@ -630,7 +780,23 @@ class CRColorimeter(Colorimeter):
         return tuple(out)
 
     @current_filters.setter
-    def current_filters(self, filters: tuple[int, ...]):
+    def current_filters(self, filters: tuple[int, ...]) -> None:
+        """
+        Set the current filter selection for all three filter positions.
+
+        Parameters
+        ----------
+        filters : tuple[int, ...]
+            Tuple of filter IDs to set. Maximum 3 filters supported.
+            Use -1 or omit positions to deselect filters.
+
+        Raises
+        ------
+        RuntimeError
+            If more than 3 filters are specified.
+        CommandError
+            If any filter setting command fails.
+        """
         if len(filters) > 3:
             RuntimeError("CR-100/120 only supports up to 3 filter selectons!")
         for i in range(1, 4):
@@ -641,10 +807,30 @@ class CRColorimeter(Colorimeter):
 
     @property
     def current_filters_names(self) -> tuple[str, str, str]:
+        """
+        Get the names of the currently selected filters.
+
+        Returns
+        -------
+        tuple[str, str, str]
+            Tuple of three filter names corresponding to the current filter selection.
+
+        Raises
+        ------
+        CommandError
+            If the filter status query command fails.
+        """
         # ignore type error. Cannot interpret list builder size.
         return tuple([self.available_filters[k] for k in self.current_filters])  # type: ignore
 
-    def _warn_filter_selection(self):
+    def _warn_filter_selection(self) -> None:
+        """
+        Issue warnings about the current filter configuration.
+
+        Emits warnings when no filters are selected, only one filter is selected,
+        or multiple filters are stacked, as these configurations may affect
+        measurement accuracy and should be verified by the user.
+        """
         cur = self.current_filters
         if len(cur) == 0:
             specio_warning("Check colorimeter has no active filters.")
@@ -670,22 +856,54 @@ class CRColorimeter(Colorimeter):
     @property
     def average_samples(self) -> int:
         """
-        Check that the connected device is a spectrometer
-        """
+        Get the number of samples to average for each measurement.
 
+        Returns
+        -------
+        int
+            Number of samples averaged per measurement (1-50).
+
+        Raises
+        ------
+        CommandError
+            If the exposure multiplier query command fails.
+        """
         response = self._write_cmd("RS ExposureX")
         return int(response.arguments[0])
 
     @average_samples.setter
-    def average_samples(self, num: int):
+    def average_samples(self, num: int) -> None:
+        """
+        Set the number of samples to average for each measurement.
+
+        Parameters
+        ----------
+        num : int
+            Number of samples to average (will be clamped to 1-50 range).
+
+        Raises
+        ------
+        CommandError
+            If the exposure multiplier setting command fails.
+        """
         num = num if num > 0 else 1
         num = num if num < 50 else 50
         self._write_cmd(f"SM ExposureX {num:d}")
 
     @property
-    def instrument_type(self):
+    def instrument_type(self) -> InstrumentType:
         """
-        Check that the connected device is a spectrometer
+        Get the instrument type of the connected device.
+
+        Returns
+        -------
+        InstrumentType
+            The type of the connected instrument (should be COLORIMETER).
+
+        Raises
+        ------
+        CommandError
+            If the instrument type query command fails.
         """
         if not hasattr(self, "_instrument_type") or self._instrument_type is None:
             response = self._write_cmd("RC InstrumentType")
@@ -694,9 +912,13 @@ class CRColorimeter(Colorimeter):
 
         return self._instrument_type
 
-    def __clear_buffer(self):
+    def __clear_buffer(self) -> None:
         """
-        Clear input buffer
+        Clear the serial port input buffer to remove any pending data.
+
+        This method temporarily sets a short timeout, reads all pending data,
+        then restores the original timeout. Used to ensure clean communication
+        before sending new commands.
         """
         t = self._port.timeout
         self._port.apply_settings({"timeout": _DEFAULT_SERIAL_TIMEOUT})
@@ -705,7 +927,22 @@ class CRColorimeter(Colorimeter):
 
     def _write_cmd(self, command: str) -> CommandResponse:
         """
-        Write cmd to serial port
+        Send a command to the CR colorimeter and parse the response.
+
+        Parameters
+        ----------
+        command : str
+            The command string to send to the device (without newline terminator).
+
+        Returns
+        -------
+        CommandResponse
+            Parsed response from the device containing type, code, description and arguments.
+
+        Raises
+        ------
+        CommandError
+            If the device returns an error response.
         """
         log = logging.getLogger("specio.CR")
         log.debug("Sending CMD: %s", command)
@@ -734,7 +971,17 @@ class CRColorimeter(Colorimeter):
 
     def _parse_response(self, data: bytes) -> CommandResponse:
         """
-        Parse CR response string
+        Parse the raw response bytes from the CR device into a structured format.
+
+        Parameters
+        ----------
+        data : bytes
+            Raw response data from the serial port.
+
+        Returns
+        -------
+        CommandResponse
+            Structured response containing parsed type, code, description and arguments.
         """
         response = data.strip().split(b":")
 
@@ -759,7 +1006,17 @@ class CRColorimeter(Colorimeter):
 
     def _raw_measure(self) -> RawColorimeterMeasurement:
         """
-        Make spectral measurement with CR
+        Perform a colorimetric measurement and return raw XYZ values.
+
+        Returns
+        -------
+        RawColorimeterMeasurement
+            Raw measurement data containing XYZ values, device ID, and exposure time.
+
+        Raises
+        ------
+        CommandError
+            If the measurement command fails or times out.
         """
         t = self._port.timeout
 

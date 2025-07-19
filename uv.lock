@@ -122,7 +122,7 @@ extras = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aenum", specifier = ">=3.1.11" },
+    { name = "aenum", specifier = ">=3.1.16" },
     { name = "bidict", specifier = ">=0.23.1" },
     { name = "colour-science", specifier = ">=0.4.6" },
     { name = "numpy", specifier = ">=2.3.1" },

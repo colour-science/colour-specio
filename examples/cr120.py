@@ -1,32 +1,22 @@
-# %%
-from specio import colorimetry_research as cr
+import time
 
-colorimeter = cr.CRColorimeter.discover()
+from specio.colorimeters import CRColorimeter
 
-colorimeter.average_samples = 2  # Average 3 samples
+cr = CRColorimeter.discover()
 
-print(colorimeter.measure())
+print(cr.measure())
 
-# %% with error handling
+NUM_MEASUREMENTS = 3
+print(f"Measuring {NUM_MEASUREMENTS} times...")
 
-from colour import SpectralShape
-from specio.common.colorimeters import ColorimeterMeasurement
+t1 = time.perf_counter()
+for i in range(NUM_MEASUREMENTS):
+    t = cr.measure()
+    print(t)
+    t2 = time.perf_counter()
+    print(f"Running Average: {(t2 - t1) / (i + 1):.2f} seconds")
+t2 = time.perf_counter()
 
-try:
-    measurement = colorimeter.measure()
-except cr.CommandError as e:
-    if (
-        e.response.code is cr.ResponseCode.LIGHT_INTENSITY_UNMEASURABLE
-        or e.response.code is cr.ResponseCode.LIGHT_INTENSITY_TOO_LOW
-    ):
-        # Make a fake measurement
-        shape = SpectralShape(380, 780, 1)
-        measurement = ColorimeterMeasurement(
-            XYZ=(0, 0, 0),
-            exposure=0,
-            device_id="My Project Fake Measurement",
-        )
-    else:
-        raise
-
-print(measurement)
+print(f"Measured {NUM_MEASUREMENTS} times in {t2 - t1:.2f} seconds.")
+print(f"Average time per measurement: {(t2 - t1) / NUM_MEASUREMENTS:.2f} seconds.")
+print(f"Device firmware: {cr.firmware}")

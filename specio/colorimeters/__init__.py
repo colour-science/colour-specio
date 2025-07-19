@@ -2,7 +2,10 @@
 Colorimeter device implementations.
 """
 
-from specio._device_implementations.colorimetry_research import CRColorimeter
+from specio._device_implementations.colorimetry_research import (
+    CRColorimeter,
+)
+from specio._device_implementations.virtual import VirtualColorimeter
 
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
@@ -14,4 +17,5 @@ __status__ = "Development"
 
 __all__ = [
     "CRColorimeter",
+    "VirtualColorimeter",
 ]

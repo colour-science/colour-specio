@@ -2,15 +2,14 @@ from .colorimeters import (
     Colorimeter,
     ColorimeterMeasurement,
     RawColorimeterMeasurement,
-    VirtualColorimeter,
 )
 from .spectrometers import (
     RawSPDMeasurement,
     SPDMeasurement,
     SpecRadiometer,
-    VirtualSpectrometer,
 )
 from .utility import SuspiciousFileOperationError, get_valid_filename
+from specio._device_implementations.virtual import VirtualColorimeter
 
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
@@ -22,13 +21,13 @@ __status__ = "Development"
 
 __all__ = [
     "Colorimeter",
-    "ColorimeterMeasurement", 
+    "ColorimeterMeasurement",
     "RawColorimeterMeasurement",
-    "VirtualColorimeter",
     "RawSPDMeasurement",
     "SPDMeasurement",
-    "SpecRadiometer", 
-    "VirtualSpectrometer",
+    "SpecRadiometer",
     "SuspiciousFileOperationError",
+    "VirtualColorimeter",
+    "VirtualSpectrometer",
     "get_valid_filename",
 ]

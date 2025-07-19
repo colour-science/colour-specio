@@ -30,16 +30,16 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 __all__ = [
-    "ResponseCode",
-    "CommandResponse",
-    "SyncMode",
-    "SyncSpeedSetting",
-    "InternalNDMode",
-    "SpeedMode", 
-    "SpeedModeSetting",
     "CS2000",
     "DEFAULT_SPEED_MODE_SETTING",
     "HIGH_ACCURACY_MODE_SETTING",
+    "CommandResponse",
+    "InternalNDMode",
+    "ResponseCode",
+    "SpeedMode",
+    "SpeedModeSetting",
+    "SyncMode",
+    "SyncSpeedSetting",
     "WriteCommandError",
 ]
 
@@ -220,7 +220,7 @@ class CS2000(SpecRadiometer):
             )
 
         for p in possible_ports:
-            p = cast(ListPortInfo, p)  # Typing for `Serial` is wrong
+            p = cast("ListPortInfo", p)  # Typing for `Serial` is wrong
 
             sp = serial.Serial(p.device, **cls.CS2000_SERIAL_KWARGS)
             sp.read_all()
@@ -400,7 +400,7 @@ class CS2000(SpecRadiometer):
                     time.sleep(0.5)
                     continue
                 else:
-                    raise e  # noqa: TRY201 Transparently re-raise original exception
+                    raise e
 
         _, spd0 = self._write_cmd("MEDR,1,1,1")
         _, spd1 = self._write_cmd("MEDR,1,1,2")

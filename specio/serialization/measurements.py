@@ -20,12 +20,12 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 __all__ = [
-    "colorimeter_measurement_to_proto",
-    "colorimeter_measurement_to_bytes",
     "colorimeter_measurement_from_bytes",
-    "spd_measurement_to_proto",
-    "spd_measurement_to_bytes",
+    "colorimeter_measurement_to_bytes",
+    "colorimeter_measurement_to_proto",
     "spd_measurement_from_bytes",
+    "spd_measurement_to_bytes",
+    "spd_measurement_to_proto",
 ]
 
 
@@ -55,7 +55,7 @@ def colorimeter_measurement_from_bytes(
 ) -> ColorimeterMeasurement:
     if isinstance(buffer, bytes):
         buffer = measurements_pb2.Colorimeter_Measurement.FromString(buffer)
-    buffer = cast(measurements_pb2.Colorimeter_Measurement, buffer)
+    buffer = cast("measurements_pb2.Colorimeter_Measurement", buffer)
     cm = ColorimeterMeasurement(
         XYZ=np.asarray((buffer.XYZ.X, buffer.XYZ.Y, buffer.XYZ.Z)),
         exposure=buffer.exposure,
@@ -158,7 +158,7 @@ def spd_measurement_from_bytes(
     """
     if isinstance(buffer, bytes):
         buffer = measurements_pb2.SPD_Measurement.FromString(buffer)
-    buffer = cast(measurements_pb2.SPD_Measurement, buffer)
+    buffer = cast("measurements_pb2.SPD_Measurement", buffer)
 
     spd = SpectralDistribution(
         (buffer.spd.values if len(buffer.spd.values) > 0 else buffer.spd.values_old),

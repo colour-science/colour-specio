@@ -13,18 +13,16 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 
-from .common.colorimeters import ColorimeterMeasurement, VirtualColorimeter
+from ._device_implementations import konica_minolta
+from ._device_implementations.colorimetry_research import colorimetry_research
+from .common.colorimeters import ColorimeterMeasurement
 from .common.spectrometers import (
     SPDMeasurement,
-    VirtualSpectrometer,
 )
-from ._device_implementations import colorimetry_research, konica_minolta
 
 __all__ = [
-    "SPDMeasurement",
-    "VirtualSpectrometer",
     "ColorimeterMeasurement",
-    "VirtualColorimeter",
+    "SPDMeasurement",
     "colorimetry_research",
     "konica_minolta",
 ]

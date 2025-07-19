@@ -2,7 +2,10 @@
 Spectrometer device implementations.
 """
 
-from specio._device_implementations.colorimetry_research import CRSpectrometer
+from specio._device_implementations.colorimetry_research.colorimetry_research import (
+    CRSpectrometer,
+)
+from specio._device_implementations.virtual import VirtualSpectrometer
 
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
@@ -14,4 +17,5 @@ __status__ = "Development"
 
 __all__ = [
     "CRSpectrometer",
+    "VirtualSpectrometer",
 ]

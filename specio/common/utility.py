@@ -16,10 +16,10 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 __all__ = [
-    "get_valid_filename",
-    "specio_warning", 
-    "SuspiciousFileOperationError",
     "SpecioRuntimeWarning",
+    "SuspiciousFileOperationError",
+    "get_valid_filename",
+    "specio_warning",
 ]
 
 
