@@ -103,7 +103,8 @@
     "testpaths",
     "norecursedirs",
     "Dunder",
-    "typings"
+    "typings",
+    "allclose"
   ],
   "ignorePaths": [
     "**/node_modules/**",

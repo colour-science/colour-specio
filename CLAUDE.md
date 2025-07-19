@@ -29,14 +29,14 @@ built around the colour-science library and provides:
 
 - `uv run invoke ai-quality` - Comprehensive quality checks for AI agents
   (formats, fixes linting, type checks, spell checks)
-- `uv run invoke ai-quality <target>` - Run quality checks on specific files or
-  directories
+- `uv run invoke ai-quality --target <target>` - Run quality checks on specific
+  files or directories
 - `ai-quality` MUST pass. If it fails, and the failures are deemed acceptable
   then comments must be added to the code to allow the quality checks to pass.
   Only create exceptions for quality checks when necessary and justified.
-- **CRITICAL**: Before completing any task, ALWAYS run `uv run invoke ai-quality`
-  and fix ALL issues including formatting, linting, type checking, AND spelling.
-  No exceptions.
+- **CRITICAL**: Before completing any task, ALWAYS run
+  `uv run invoke ai-quality` and fix ALL issues including formatting, linting,
+  type checking, AND spelling. No exceptions.
 - When importing library objects, import them from public modules. Only use
   private `_name` modules when absolutely necessary.
 

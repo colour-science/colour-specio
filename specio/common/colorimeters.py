@@ -1,23 +1,21 @@
 """
-Define basic spectrometer interfaces
+Define basic colorimeter interfaces
 """
 
-import textwrap
 from abc import ABC, abstractmethod
-from ctypes import ArgumentError
 from dataclasses import dataclass
-from datetime import datetime
 from functools import cached_property
 from typing import Self
 
 import numpy as np
-from colour.colorimetry.dominant import (
-    colorimetric_purity,
-    dominant_wavelength,
-)
 from colour.hints import ArrayLike
-from colour.models.cie_xyy import XYZ_to_xy
 from colour.temperature.ohno2013 import XYZ_to_CCT_Ohno2013
+
+from ._measurements_shared import (
+    BaseMeasurement,
+    compute_color_properties,
+    validate_repetitions,
+)
 
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
@@ -58,7 +56,7 @@ class RawColorimeterMeasurement:
     device_id: str
 
 
-class ColorimeterMeasurement:
+class ColorimeterMeasurement(BaseMeasurement):
     @classmethod
     def FromRaw(cls, raw: RawColorimeterMeasurement) -> Self:
         """
@@ -116,42 +114,33 @@ class ColorimeterMeasurement:
             self.cct: float = cct[0]
             self.duv: float = cct[1]
 
-            self.xy = XYZ_to_xy(self.XYZ)
-            self.dominant_wl: float = float(
-                dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0]
-            )
-            self.purity: float = colorimetric_purity(self.xy, (1 / 3, 1 / 3))  # type: ignore
-            self.time = datetime.now().astimezone()
+            # Use shared color property computation
+            color_props = compute_color_properties(self.XYZ)
+            self.xy = color_props["xy"]
+            self.dominant_wl: float = color_props["dominant_wl"]
+            self.purity: float = color_props["purity"]
+            self.time = color_props["time"]
 
-    def __eq__(self, other: object) -> bool:
+    def _get_comparison_keys(self) -> list[str]:
         """
-        Check equality between ColorimeterMeasurement objects.
-
-        Parameters
-        ----------
-        other : object
-            Object to compare with this measurement.
+        Get list of attribute names to use for equality comparison.
 
         Returns
         -------
-        bool
-            True if all measurement attributes are equal, False otherwise.
+        list[str]
+            List of attribute names for comparison.
         """
-        if isinstance(other, ColorimeterMeasurement):
-            keys = [
-                "XYZ",
-                "exposure",
-                "device_id",
-                "cct",
-                "duv",
-                "xy",
-                "dominant_wl",
-                "purity",
-                "time",
-            ]
-            bools = [np.all(getattr(self, k) == getattr(other, k)) for k in keys]
-            return all(bools)
-        return False
+        return [
+            "XYZ",
+            "exposure",
+            "device_id",
+            "cct",
+            "duv",
+            "xy",
+            "dominant_wl",
+            "purity",
+            "time",
+        ]
 
     def __str__(self) -> str:
         """
@@ -161,17 +150,7 @@ class ColorimeterMeasurement:
         -------
         str
         """
-        return textwrap.dedent(
-            f"""
-            Colorimeter Measurement - {self.device_id}:
-                time: {self.time}
-                XYZ: {np.array2string(self.XYZ, formatter={"float_kind": lambda x: f"{x:.2f}"})}
-                xy: {np.array2string(self.xy, formatter={"float_kind": lambda x: f"{x:.4f}"})}
-                CCT: {self.cct:.0f} ± {self.duv:.5f}
-                Dominant WL: {self.dominant_wl:.1f} @ {self.purity * 100:.1f}%
-                Exposure: {self.exposure:.3f}
-            """
-        )
+        return self._format_measurement_string("Colorimeter", self.device_id)
 
 
 class Colorimeter(ABC):
@@ -251,8 +230,7 @@ class Colorimeter(ABC):
             colour-science and the raw SPD.
         """
 
-        if repetitions < 1:
-            ArgumentError("Repetitions must be greater than 1")
+        validate_repetitions(repetitions)
 
         _rm: list[RawColorimeterMeasurement] = []
         for _ in range(repetitions):

@@ -2,24 +2,22 @@
 Define basic spectrometer interfaces
 """
 
-import textwrap
 from abc import ABC, abstractmethod
-from ctypes import ArgumentError
 from dataclasses import dataclass
-from datetime import datetime
 from functools import cached_property
 from typing import Any, Self
 
 import numpy as np
 from colour import SpectralDistribution
-from colour.colorimetry.dominant import (
-    colorimetric_purity,
-    dominant_wavelength,
-)
 from colour.colorimetry.tristimulus_values import sd_to_XYZ
 from colour.models.cie_ucs import xy_to_UCS_uv
-from colour.models.cie_xyy import XYZ_to_xy
 from colour.temperature import uv_to_CCT
+
+from ._measurements_shared import (
+    BaseMeasurement,
+    compute_color_properties,
+    validate_repetitions,
+)
 
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
@@ -49,7 +47,7 @@ class RawSPDMeasurement:
     anc_data: Any = None
 
 
-class SPDMeasurement:
+class SPDMeasurement(BaseMeasurement):
     """
     The basic measurement structure for specio. It contains
     `colour.SpectralDistribution` and several convenience calculations. It an
@@ -114,14 +112,19 @@ class SPDMeasurement:
 
         if not no_compute:
             self.XYZ = sd_to_XYZ(self.spd, k=683, method=method)
-            self.xy = XYZ_to_xy(self.XYZ)
+
+            # Use shared color property computation
+            color_props = compute_color_properties(self.XYZ)
+            self.xy = color_props["xy"]
+            self.dominant_wl: float = color_props["dominant_wl"]
+            self.purity: float = color_props["purity"]
+            self.time = color_props["time"]
+
             _cct = uv_to_CCT(xy_to_UCS_uv(self.xy))
             self.cct: float = _cct[0]
             self.duv: float = _cct[1]
-            self.dominant_wl = float(dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0])
-            self.purity: float = colorimetric_purity(self.xy, (1 / 3, 1 / 3))  # type: ignore
+
             self.power: float = np.asarray(self.spd.values).sum()
-            self.time = datetime.now().astimezone()
 
     def __str__(self) -> str:
         """
@@ -131,16 +134,9 @@ class SPDMeasurement:
         -------
         str
         """
-        return textwrap.dedent(
-            f"""
-            Spectral Measurement - {self.spectrometer_id}:
-                time: {self.time}
-                XYZ: {np.array2string(self.XYZ, formatter={"float_kind": lambda x: f"{x:.4f}"})}
-                xy: {np.array2string(self.xy, formatter={"float_kind": lambda x: f"{x:.4f}"})}
-                CCT: {self.cct:.0f} ± {self.duv:.5f}
-                Dominant WL: {self.dominant_wl:.1f} @ {self.purity * 100:.1f}%
-                Exposure: {self.exposure:.3f}
-            """
+        additional_lines = [f"    Power: {self.power:.2f}"]
+        return self._format_measurement_string(
+            "Spectral", self.spectrometer_id, additional_lines
         )
 
     def __repr__(self) -> str:
@@ -154,24 +150,16 @@ class SPDMeasurement:
 
         return f"Spectral Measurement - {self.spectrometer_id}, Time: {self.time}, XYZ = {self.XYZ}"
 
-    def __eq__(self, other: object) -> bool:
-        """Check equality to another `specio.spectrometers.common.Measurement.` Based on
-        multiple subfields.
-
-        True if "exposure", "spectrometer_id", "XYZ", "xy", "dominant_wl",
-        "power", "time", "cct", "duv" are all equal.
-
-        Parameters
-        ----------
-        other : Measurement
-            The object to compare to
+    def _get_comparison_keys(self) -> list[str]:
+        """
+        Get list of attribute names to use for equality comparison.
 
         Returns
         -------
-        bool
+        list[str]
+            List of attribute names for comparison.
         """
-
-        keys = [
+        return [
             "spd",
             "exposure",
             "spectrometer_id",
@@ -184,8 +172,6 @@ class SPDMeasurement:
             "cct",
             "duv",
         ]
-        data = [getattr(self, k) == getattr(other, k) for k in keys]
-        return all(np.all(d) for d in data)
 
 
 class SpecRadiometer(ABC):
@@ -265,8 +251,7 @@ class SpecRadiometer(ABC):
             colour-science and the raw SPD.
         """
 
-        if repetitions < 1:
-            ArgumentError("Repetitions must be greater than 1")
+        validate_repetitions(repetitions)
 
         _rm: list[RawSPDMeasurement] = []
         for _ in range(repetitions):

@@ -5,7 +5,7 @@ from specio.spectrometers import CRSpectrometer
 cr = CRSpectrometer.discover()
 
 cr.measurement_speed = cr.MeasurementSpeed.FAST_2X
-cr.average_samples = 1
+cr.average_samples = 3
 
 NUM_MEASUREMENTS = 3
 print(f"Measuring {NUM_MEASUREMENTS} times...")

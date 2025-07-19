@@ -7,6 +7,8 @@ from typing import Any
 
 from colour.utilities import warning
 
+from .exceptions import SuspiciousFileOperationError
+
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -17,14 +19,9 @@ __status__ = "Development"
 
 __all__ = [
     "SpecioRuntimeWarning",
-    "SuspiciousFileOperationError",
     "get_valid_filename",
     "specio_warning",
 ]
-
-
-class SuspiciousFileOperationError(Exception):
-    """Generated when a user does something suspicious with file names"""
 
 
 def get_valid_filename(name: str) -> str:
