@@ -1,0 +1,1 @@
+from specio._device_implementations.colorimetry_research import CRSpectrometer
