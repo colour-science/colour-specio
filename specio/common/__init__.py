@@ -27,7 +27,5 @@ __all__ = [
     "SPDMeasurement",
     "SpecRadiometer",
     "SuspiciousFileOperationError",
-    "VirtualColorimeter",
-    "VirtualSpectrometer",
     "get_valid_filename",
 ]
