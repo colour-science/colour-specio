@@ -47,7 +47,7 @@ class VirtualSpectrometer(SpecRadiometer):
         return "specio"
 
     @cached_property
-    def model(self):
+    def model(self) -> str:
         """The model name or model signature from the spectrometer.
 
         Returns
@@ -57,7 +57,7 @@ class VirtualSpectrometer(SpecRadiometer):
         return "Virtual Random Spectrometer"
 
     @property
-    def serial_number(self):
+    def serial_number(self) -> str:
         """The serial number of the spectrometer
 
         Returns
@@ -96,7 +96,7 @@ class VirtualSpectrometer(SpecRadiometer):
 @final
 class VirtualColorimeter(Colorimeter):
     """
-    Basic spectroradiometer interface. Implements a virtual spectrometer
+    Basic colorimeter interface. Implements a virtual colorimeter
     returning random colors for basic testing
     """
 
@@ -105,7 +105,7 @@ class VirtualColorimeter(Colorimeter):
 
     @property
     def manufacturer(self) -> str:
-        """Return "specio" as the manufacturer of this virtual spectrometer
+        """Return "specio" as the manufacturer of this virtual colorimeter
 
         Returns
         -------
@@ -114,18 +114,18 @@ class VirtualColorimeter(Colorimeter):
         return "specio"
 
     @cached_property
-    def model(self):
-        """The model name or model signature from the spectrometer.
+    def model(self) -> str:
+        """The model name or model signature from the colorimeter.
 
         Returns
         -------
         str
         """
-        return "Virtual Random Spectrometer"
+        return "Virtual Random Colorimeter"
 
     @property
-    def serial_number(self):
-        """The serial number of the spectrometer
+    def serial_number(self) -> str:
+        """The serial number of the colorimeter
 
         Returns
         -------
@@ -154,6 +154,6 @@ class VirtualColorimeter(Colorimeter):
         _measurement = RawColorimeterMeasurement(
             XYZ=sd_to_XYZ(spd, k=683),
             exposure=1.0,
-            device_id="Virtual Spectrometer",
+            device_id="Virtual Colorimeter",
         )
         return _measurement

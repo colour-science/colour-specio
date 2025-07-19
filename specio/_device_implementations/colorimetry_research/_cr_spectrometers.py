@@ -53,7 +53,9 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
         serial.SerialException
             If no serial port can be automatically linked.
         """
-        return super().discover(expected_instrument_type=InstrumentType.SPECTRORADIOMETER)
+        return super().discover(
+            expected_instrument_type=InstrumentType.SPECTRORADIOMETER
+        )
 
     def __init__(
         self,
@@ -179,4 +181,3 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
             spectrometer_id=self.readable_id,
             exposure=exposure,
         )
-

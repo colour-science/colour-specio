@@ -5,7 +5,7 @@ from invoke.tasks import task
 
 
 @task
-def lint(ctx: Context, fix: bool = False) -> None:
+def lint(ctx: Context, fix: bool = False, target: str = ".") -> None:
     """Run ruff linting with optional auto-fix.
 
     Parameters
@@ -14,15 +14,17 @@ def lint(ctx: Context, fix: bool = False) -> None:
         Invoke context object
     fix : bool, optional
         Whether to auto-fix issues, by default False
+    target : str, optional
+        Directory or file glob to target, by default "."
     """
-    cmd = "ruff check ."
+    cmd = f"ruff check {target}"
     if fix:
         cmd += " --fix"
     ctx.run(cmd)
 
 
 @task
-def format(ctx: Context, check: bool = False) -> None:
+def format(ctx: Context, check: bool = False, target: str = ".") -> None:
     """Run ruff formatting with optional check-only mode.
 
     Parameters
@@ -31,27 +33,34 @@ def format(ctx: Context, check: bool = False) -> None:
         Invoke context object
     check : bool, optional
         Whether to check formatting without applying changes, by default False
+    target : str, optional
+        Directory or file glob to target, by default "."
     """
-    cmd = "ruff format ."
+    cmd = f"ruff format {target}"
     if check:
         cmd += " --check"
     ctx.run(cmd)
 
 
 @task
-def typecheck(ctx: Context) -> None:
+def typecheck(ctx: Context, target: str = "") -> None:
     """Run pyright type checking.
 
     Parameters
     ----------
     ctx : Context
         Invoke context object
+    target : str, optional
+        Directory or file glob to target, by default "" (whole project)
     """
-    ctx.run("pyright")
+    cmd = "pyright"
+    if target:
+        cmd += f" {target}"
+    ctx.run(cmd)
 
 
 @task
-def spellcheck(ctx: Context) -> None:
+def spellcheck(ctx: Context, target: str = "") -> None:
     """Run spell checking using cspell.
 
     Checks for spelling errors in Python and documentation files.
@@ -61,6 +70,8 @@ def spellcheck(ctx: Context) -> None:
     ----------
     ctx : Context
         Invoke context object
+    target : str, optional
+        Directory or file glob to target, by default "" (uses default patterns)
     """
     import shutil
 
@@ -74,10 +85,18 @@ def spellcheck(ctx: Context) -> None:
         print("   • Other: https://nodejs.org/")
         return
 
+    # Determine what to check
+    if target:
+        cspell_pattern = f'"{target}"'
+    else:
+        cspell_pattern = (
+            '"specio/**/*" "tests/**/*" "examples/**/*" "scripts/**/*" "*.md"'
+        )
+
     # Try to run cspell, handle if not installed
     try:
         result = ctx.run(
-            'npx cspell "specio/**/*" "tests/**/*" "examples/**/*" "scripts/**/*" "*.md" --no-progress',
+            f"npx cspell {cspell_pattern} --no-progress",
             warn=True,
         )
 
@@ -98,7 +117,7 @@ def spellcheck(ctx: Context) -> None:
             print("🔄 Trying to install and run cspell temporarily...")
             try:
                 ctx.run(
-                    'npx cspell "specio/**/*" "tests/**/*" "examples/**/*" "scripts/**/*" "*.md" --no-progress',
+                    f"npx cspell {cspell_pattern} --no-progress",
                     warn=True,
                 )
             except Exception:
@@ -152,7 +171,7 @@ def check_fix(ctx: Context) -> None:
 
 
 @task
-def ai_quality(ctx: Context) -> None:
+def ai_quality(ctx: Context, target: str = ".") -> None:
     """Run comprehensive quality checks for AI agents.
 
     AI Agents should use this task for quality checking.
@@ -163,18 +182,20 @@ def ai_quality(ctx: Context) -> None:
     ----------
     ctx : Context
         Invoke context object
+    target : str, optional
+        Directory or file glob to target, by default "."
     """
     print("📝 Formatting code...")
-    format(ctx, check=False)
+    format(ctx, check=False, target=target)
 
     print("🔧 Fixing linting issues...")
-    lint(ctx, fix=True)
+    lint(ctx, fix=True, target=target)
 
     print("🔬 Type checking...")
-    typecheck(ctx)
+    typecheck(ctx, target=target)
 
     print("📖 Spell checking...")
-    spellcheck(ctx)
+    spellcheck(ctx, target=target)
 
 
 @task

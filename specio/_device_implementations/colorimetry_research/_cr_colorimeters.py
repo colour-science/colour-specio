@@ -136,7 +136,7 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
             If any filter setting command fails.
         """
         if len(filters) > 3:
-            RuntimeError("CR-100/120 only supports up to 3 filter selectons!")
+            raise RuntimeError("CR-100/120 only supports up to 3 filter selectons!")
         for i in range(1, 4):
             cur_filter_id = filters[i - 1] if i <= len(filters) else -1
             self._write_cmd(f"SM Filter{i:.0f} {cur_filter_id:.0f}")
@@ -215,4 +215,3 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
             device_id=self.readable_id,
             exposure=exposure,
         )
-

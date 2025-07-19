@@ -27,6 +27,8 @@ built around the colour-science library and provides:
 
 ### Code Quality and Linting
 
+- `uv run invoke ai-quality` - Comprehensive quality checks for AI agents (formats, fixes linting, type checks, spell checks)
+- `uv run invoke ai-quality <target>` - Run quality checks on specific files or directories
 - `uv run ruff check` - Run linting with Ruff
 - `uv run ruff format` - Format code with Ruff
 - `uv run ruff check --fix` - Auto-fix linting issues

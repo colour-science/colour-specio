@@ -252,7 +252,9 @@ class CRDeviceBase(ABC):
                 sp.write(b"RC InstrumentType\n")
 
                 response = sp.readline()
-                expected_response = f"OK:0:RC InstrumentType:{expected_instrument_type.value}".encode()
+                expected_response = (
+                    f"OK:0:RC InstrumentType:{expected_instrument_type.value}".encode()
+                )
                 if response.startswith(expected_response):
                     sp.close()
                     return cls(device)
@@ -487,4 +489,3 @@ class CRDeviceBase(ABC):
         This method must be implemented by concrete device classes.
         """
         ...
-

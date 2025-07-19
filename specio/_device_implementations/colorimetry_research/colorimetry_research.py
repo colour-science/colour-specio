@@ -27,7 +27,7 @@ warnings.warn(
     "Direct imports from colorimetry_research.py are deprecated. "
     "Use imports from the colorimetry_research package instead.",
     DeprecationWarning,
-    stacklevel=2
+    stacklevel=2,
 )
 
 __version__ = "0.4.1.post0"
