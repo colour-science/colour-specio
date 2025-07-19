@@ -30,9 +30,16 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
     """
 
     @classmethod
-    def discover(cls) -> "CRColorimeter":
+    def discover(
+        cls, expected_instrument_type: InstrumentType | None = None
+    ) -> "CRColorimeter":
         """Attempt automatic discovery of the CR serial port and return the
         CR colorimeter object.
+
+        Parameters
+        ----------
+        expected_instrument_type : InstrumentType | None, optional
+            The expected instrument type, defaults to COLORIMETER.
 
         Returns
         -------
@@ -44,7 +51,9 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         serial.SerialException
             If no serial port can be automatically linked.
         """
-        return super().discover(expected_instrument_type=InstrumentType.COLORIMETER)
+        if expected_instrument_type is None:
+            expected_instrument_type = InstrumentType(1)
+        return super().discover(expected_instrument_type=expected_instrument_type)
 
     def __init__(
         self,
@@ -136,7 +145,7 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
             If any filter setting command fails.
         """
         if len(filters) > 3:
-            raise RuntimeError("CR-100/120 only supports up to 3 filter selectons!")
+            raise RuntimeError("CR-100/120 only supports up to 3 filter selections!")
         for i in range(1, 4):
             cur_filter_id = filters[i - 1] if i <= len(filters) else -1
             self._write_cmd(f"SM Filter{i:.0f} {cur_filter_id:.0f}")

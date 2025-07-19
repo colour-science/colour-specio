@@ -11,13 +11,15 @@ from enum import Enum
 from functools import cached_property
 from textwrap import dedent
 from types import MappingProxyType
-from typing import Any, NamedTuple, cast, final
+from typing import TYPE_CHECKING, Any, NamedTuple, cast, final
 
 import aenum
 import serial
 from colour import SpectralDistribution, SpectralShape
 from serial.tools import list_ports
-from serial.tools.list_ports_common import ListPortInfo
+
+if TYPE_CHECKING:
+    from serial.tools.list_ports_common import ListPortInfo
 
 from specio.common import RawSPDMeasurement, SpecRadiometer
 
@@ -63,8 +65,8 @@ class ResponseCode(aenum.MultiValueEnum):
         "The command parameters could not be interpreted",
     )
 
-    TEMPURTURE_ABNORMALITY_0 = b"ER51", "Device temperature abnormal. "
-    TEMPURTURE_ABNORMALITY_1 = b"ER52", "Device temperature abnormal."
+    TEMPERATURE_ABNORMALITY_0 = b"ER51", "Device temperature abnormal. "
+    TEMPERATURE_ABNORMALITY_1 = b"ER52", "Device temperature abnormal."
 
     SYNC_ERROR = b"ER71", "Could not synchronize to light source flicker"
     TARGET_ABNORMALITY = b"ER83", "Measurement Area Abnormality"
@@ -152,7 +154,7 @@ class SpeedModeSetting:
                     f"""SpeedMode.{mode.name} requires integration_time time
                     to be between 2 and 16 integer seconds."""
                 )
-            self.time: int = int(round(integration_time))
+            self.time: int = round(integration_time)
 
         elif mode is SpeedMode.MANUAL:
             if (
@@ -164,7 +166,7 @@ class SpeedModeSetting:
                     f"""SpeedMode.{mode.name} requires manual_integration time
                     to be between .005 and 120 seconds."""
                 )
-            self.time = int(round(integration_time * 1e6))
+            self.time = round(integration_time * 1e6)
 
     def __bytes__(self):
         cmd_bytes = bytearray(self.mode + b",")
@@ -382,7 +384,7 @@ class CS2000(SpecRadiometer):
 
     @speedmode.setter
     def speedmode(self, cr: SpeedModeSetting):
-        code, _ = self._write_cmd(b"SPMS," + bytes(cr))
+        _, _ = self._write_cmd(b"SPMS," + bytes(cr))
 
     def _raw_measure(self) -> RawSPDMeasurement:
         # Additional timeout recommended by KM manual

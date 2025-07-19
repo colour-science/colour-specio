@@ -3,12 +3,11 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from specio.common import VirtualSpectrometer
+from specio._device_implementations.virtual import VirtualSpectrometer
 from specio.scripts import csmf_anonymize
 from specio.serialization.csmf import (
     CSMF_Data,
     CSMF_Metadata,
-    csmf_data_to_buffer,
     load_csmf_file,
     save_csmf_file,
 )
@@ -24,7 +23,7 @@ def virtual_data() -> CSMF_Data:
     order = np.random.permutation(NUM_VIRTUAL)
 
     ml = CSMF_Data(
-        measurements=np.asarray(measurements),  # type: ignore
+        measurements=np.asarray(measurements),
         test_colors=test_colors,
         order=order,
         metadata=CSMF_Metadata(
@@ -38,10 +37,9 @@ def virtual_data() -> CSMF_Data:
 
 
 class Test_CSMF_Anonymize:
-    def test_csmf_anonymize(self, tmp_path: Path, virtual_data):
+    def test_csmf_anonymize(self, tmp_path: Path, virtual_data: CSMF_Data):
         p = tmp_path.joinpath("test_data")
 
-        buffer = csmf_data_to_buffer(virtual_data)
         p = save_csmf_file(p, virtual_data)
 
         anon_file_path = csmf_anonymize.main(str(p))

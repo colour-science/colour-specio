@@ -58,6 +58,19 @@ class SPDMeasurement:
 
     @classmethod
     def FromRaw(cls, raw: RawSPDMeasurement) -> Self:
+        """
+        Create an SPDMeasurement from raw spectrometer measurement data.
+
+        Parameters
+        ----------
+        raw : RawSPDMeasurement
+            Raw measurement data containing spectral power distribution and metadata.
+
+        Returns
+        -------
+        SPDMeasurement
+            Processed measurement with calculated color properties.
+        """
         return cls(
             spd=raw.spd,
             exposure=raw.exposure,
@@ -73,6 +86,23 @@ class SPDMeasurement:
         ancillary: Any = None,
         no_compute: bool = False,
     ):
+        """
+        Initialize spectral measurement with computed color properties.
+
+        Parameters
+        ----------
+        spd : SpectralDistribution
+            Spectral power distribution data from the measurement.
+        exposure : float
+            Exposure time or integration time used for the measurement.
+        spectrometer_id : str
+            Unique identifier for the measuring spectrometer.
+        ancillary : Any, optional
+            Additional metadata or ancillary data from the measurement.
+        no_compute : bool, optional
+            If True, skip calculation of derived color properties (XYZ, CCT, etc.).
+            Default is False.
+        """
         self.spd = spd
         self.exposure = exposure
         self.spectrometer_id = spectrometer_id
@@ -105,8 +135,8 @@ class SPDMeasurement:
             f"""
             Spectral Measurement - {self.spectrometer_id}:
                 time: {self.time}
-                XYZ: {np.array2string(self.XYZ, formatter={'float_kind':lambda x: f"{x:.4f}"})}
-                xy: {np.array2string(self.xy, formatter={'float_kind':lambda x: f"{x:.4f}"})}
+                XYZ: {np.array2string(self.XYZ, formatter={"float_kind": lambda x: f"{x:.4f}"})}
+                xy: {np.array2string(self.xy, formatter={"float_kind": lambda x: f"{x:.4f}"})}
                 CCT: {self.cct:.0f} ± {self.duv:.5f}
                 Dominant WL: {self.dominant_wl:.1f} @ {self.purity * 100:.1f}%
                 Exposure: {self.exposure:.3f}
@@ -239,7 +269,7 @@ class SpecRadiometer(ABC):
             ArgumentError("Repetitions must be greater than 1")
 
         _rm: list[RawSPDMeasurement] = []
-        for i in range(repetitions):
+        for _ in range(repetitions):
             _rm += [self._raw_measure()]
 
         if len(_rm) == 1:
@@ -253,5 +283,3 @@ class SpecRadiometer(ABC):
         return SPDMeasurement.FromRaw(
             RawSPDMeasurement(spd=spd, exposure=exposure, spectrometer_id=id)
         )
-
-

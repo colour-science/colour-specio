@@ -39,9 +39,16 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
         FAST_2X: Self = 3, "3", "2x fast"  # type: ignore
 
     @classmethod
-    def discover(cls) -> "CRSpectrometer":
+    def discover(
+        cls, expected_instrument_type: InstrumentType | None = None
+    ) -> "CRSpectrometer":
         """Attempt automatic discovery of the CR serial port and return the
         CR spectrometer object.
+
+        Parameters
+        ----------
+        expected_instrument_type : InstrumentType | None, optional
+            The expected instrument type, defaults to SPECTRORADIOMETER.
 
         Returns
         -------
@@ -53,9 +60,9 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
         serial.SerialException
             If no serial port can be automatically linked.
         """
-        return super().discover(
-            expected_instrument_type=InstrumentType.SPECTRORADIOMETER
-        )
+        if expected_instrument_type is None:
+            expected_instrument_type = InstrumentType(2)
+        return super().discover(expected_instrument_type=expected_instrument_type)
 
     def __init__(
         self,

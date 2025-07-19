@@ -13,4 +13,4 @@ Step 2: Build protobufs, this builds them for python
 
 ### Optional Steps
 
-Make your python IDE aware of the type hinting in typeings
+Make your python IDE aware of the type hinting in typings

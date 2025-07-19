@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
 from types import MappingProxyType
-from typing import Self
+from typing import Any, Self
 
 import serial
 import serial.tools.list_ports
@@ -126,7 +126,7 @@ class ResponseCode(int, Enum):
     INVALID_RANGE_INDEX = -513
     INVALID_EXPOSURE_MULTIPLIER = -514
 
-    INDEX_DOESNT_SELECT_APERTURE = -515
+    INDEX_DOES_NOT_SELECT_APERTURE = -515
 
     INVALID_EXPOSURE_MODE = -518
     INVALID_EXPOSURE_VALUE = -519
@@ -137,13 +137,13 @@ class ResponseCode(int, Enum):
     INVALID_MATRIX_ID = -553
     INVALID_MATRIX_NAME = -555
 
-    ERRROR_SAVING_MATRIX_FLASH = -559
+    ERROR_SAVING_MATRIX_FLASH = -559
     INVALID_USER_CALIBRATION_MODE = -560
 
     RESERVED = -999
 
     @classmethod
-    def _missing_(cls, value: object) -> "ResponseCode":
+    def _missing_(cls, value: object) -> "ResponseCode":  # noqa: ARG003
         """
         Set the default error code to RESERVED when an unknown code is encountered.
 
@@ -482,7 +482,7 @@ class CRDeviceBase(ABC):
         )
 
     @abstractmethod
-    def _raw_measure(self):
+    def _raw_measure(self) -> Any:
         """
         Perform a raw measurement and return device-specific measurement data.
 

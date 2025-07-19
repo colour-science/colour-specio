@@ -3,7 +3,6 @@ Provides serialization for Measurement Classes
 """
 
 import datetime
-from typing import cast
 
 import numpy as np
 from colour import SpectralDistribution, SpectralShape
@@ -55,7 +54,6 @@ def colorimeter_measurement_from_bytes(
 ) -> ColorimeterMeasurement:
     if isinstance(buffer, bytes):
         buffer = measurements_pb2.Colorimeter_Measurement.FromString(buffer)
-    buffer = cast("measurements_pb2.Colorimeter_Measurement", buffer)
     cm = ColorimeterMeasurement(
         XYZ=np.asarray((buffer.XYZ.X, buffer.XYZ.Y, buffer.XYZ.Z)),
         exposure=buffer.exposure,
@@ -158,7 +156,6 @@ def spd_measurement_from_bytes(
     """
     if isinstance(buffer, bytes):
         buffer = measurements_pb2.SPD_Measurement.FromString(buffer)
-    buffer = cast("measurements_pb2.SPD_Measurement", buffer)
 
     spd = SpectralDistribution(
         (buffer.spd.values if len(buffer.spd.values) > 0 else buffer.spd.values_old),

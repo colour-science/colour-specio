@@ -89,7 +89,7 @@ class CSMF_Data:
         return False
 
 
-def csmf_data_to_buffer(
+def csmf_data_to_buffer(  # noqa: C901
     ml: CSMF_Data,
 ) -> measurements_pb2.CSFM_File:
     pbuf = measurements_pb2.CSFM_File()

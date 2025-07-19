@@ -34,6 +34,12 @@ class VirtualSpectrometer(SpecRadiometer):
     """
 
     def __init__(self):
+        """
+        Initialize virtual spectrometer for testing and development.
+
+        Creates a simulated spectrometer that generates semi-random spectral
+        power distributions for testing purposes without requiring physical hardware.
+        """
         super().__init__()
 
     @property
@@ -101,6 +107,12 @@ class VirtualColorimeter(Colorimeter):
     """
 
     def __init__(self):
+        """
+        Initialize virtual colorimeter for testing and development.
+
+        Creates a simulated colorimeter that generates random XYZ tristimulus
+        values for testing purposes without requiring physical hardware.
+        """
         super().__init__()
 
     @property

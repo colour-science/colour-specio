@@ -26,7 +26,7 @@ print(f"Average time per measurement: {(t2 - t1) / NUM_MEASUREMENTS:.2f} seconds
 
 print("\n=== Virtual Colorimeter Example ===")
 
-# Virtual Colorimeter Example  
+# Virtual Colorimeter Example
 vc = VirtualColorimeter()
 
 print(f"Device: {vc.manufacturer} {vc.model}")

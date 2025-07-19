@@ -27,16 +27,33 @@ built around the colour-science library and provides:
 
 ### Code Quality and Linting
 
-- `uv run invoke ai-quality` - Comprehensive quality checks for AI agents (formats, fixes linting, type checks, spell checks)
-- `uv run invoke ai-quality <target>` - Run quality checks on specific files or directories
-- `uv run ruff check` - Run linting with Ruff
-- `uv run ruff format` - Format code with Ruff
-- `uv run ruff check --fix` - Auto-fix linting issues
-- `uv run pyright` - Type checking with Pyright
+- `uv run invoke ai-quality` - Comprehensive quality checks for AI agents
+  (formats, fixes linting, type checks, spell checks)
+- `uv run invoke ai-quality <target>` - Run quality checks on specific files or
+  directories
+- `ai-quality` MUST pass. If it fails, and the failures are deemed acceptable
+  then comments must be added to the code to allow the quality checks to pass.
+  Only create exceptions for quality checks when necessary and justified.
+- **CRITICAL**: Before completing any task, ALWAYS run `uv run invoke ai-quality`
+  and fix ALL issues including formatting, linting, type checking, AND spelling.
+  No exceptions.
+- When importing library objects, import them from public modules. Only use
+  private `_name` modules when absolutely necessary.
+
+#### Quality Requirements
+
+1. **Formatting**: Code must be formatted with Ruff (88 char line length)
+2. **Linting**: All Ruff linting rules must pass
+3. **Type Checking**: Pyright must report 0 errors, 0 warnings, 0 information
+4. **Spelling**: CSpell must find 0 spelling errors
+   - Fix genuine typos in code and comments
+   - Add legitimate technical terms to `cspell.json` in the `words` array
+   - Common technical terms already included: colour, numpy, protoc, etc.
+5. **No Duplicate Configuration**: Avoid duplicate keys in pyproject.toml
 
 #### Self Documenting Code
 
-All pyrhon functions should have doc strings, type annotations, and return
+All python functions should have doc strings, type annotations, and return
 types. Do not use overly complicated types. Use numpy types when applicable,
 i.e. `npt.ArrayLike`
 

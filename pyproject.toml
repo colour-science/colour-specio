@@ -41,6 +41,7 @@ dependencies = [
     "protobuf>=5.27.0",
     "bidict>=0.23.1",
     "aenum>=3.1.16",
+    "xxhash>=3.5.0",
 ]
 
 [project.urls]
@@ -130,8 +131,8 @@ indent-style = "space"
 convention = "numpy"
 
 [tool.pyright]
-include = ["specio", "tests"]
-exclude = ["**/__pycache__"]
+include = ["examples", "tests", "specio"]
+exclude = ["**/__pycache__", "**/*_pb2.py", "**/*_pb2.pyi"]
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.13"
@@ -150,6 +151,13 @@ reportUnnecessaryTypeIgnoreComment = true
 reportMissingModuleSource = false
 reportUnboundVariable = false
 reportUnnecessaryCast = true
-reportUnnecessaryTypeIgnorComment = true
 reportUnsupportedDunderAll = false
 reportUnusedExpression = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "specio"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+norecursedirs = [".*", "*.egg", "dist", "build", "__pycache__", "*.pyc"]
+ignore_glob = ["**/*_pb2.py", "**/*_pb2.pyi"]

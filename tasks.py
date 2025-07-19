@@ -192,7 +192,7 @@ def ai_quality(ctx: Context, target: str = ".") -> None:
     lint(ctx, fix=True, target=target)
 
     print("🔬 Type checking...")
-    typecheck(ctx, target=target)
+    typecheck(ctx, target=target if target != "." else "")
 
     print("📖 Spell checking...")
     spellcheck(ctx, target=target)

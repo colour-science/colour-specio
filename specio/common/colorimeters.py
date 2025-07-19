@@ -36,6 +36,23 @@ __all__ = [
 
 @dataclass
 class RawColorimeterMeasurement:
+    """
+    Raw colorimeter measurement data from hardware before color calculations.
+
+    Contains the fundamental measurement data captured directly from colorimeter
+    hardware, including XYZ tristimulus values, exposure settings, and device
+    identification.
+
+    Parameters
+    ----------
+    XYZ : np.ndarray
+        CIE 1931 XYZ tristimulus values from the measurement.
+    exposure : float
+        Exposure time or integration time used for the measurement.
+    device_id : str
+        Unique identifier for the measuring device.
+    """
+
     XYZ: np.ndarray
     exposure: float
     device_id: str
@@ -44,6 +61,19 @@ class RawColorimeterMeasurement:
 class ColorimeterMeasurement:
     @classmethod
     def FromRaw(cls, raw: RawColorimeterMeasurement) -> Self:
+        """
+        Create a ColorimeterMeasurement from raw measurement data.
+
+        Parameters
+        ----------
+        raw : RawColorimeterMeasurement
+            Raw measurement data from the colorimeter hardware.
+
+        Returns
+        -------
+        ColorimeterMeasurement
+            Processed measurement with calculated color properties.
+        """
         return cls(raw.XYZ, raw.exposure, raw.device_id)
 
     def __init__(
@@ -53,6 +83,26 @@ class ColorimeterMeasurement:
         device_id: str,
         no_compute: bool = False,
     ):
+        """
+        Initialize colorimeter measurement with computed color properties.
+
+        Parameters
+        ----------
+        XYZ : ArrayLike
+            CIE 1931 XYZ tristimulus values as a 3-element array.
+        exposure : float
+            Exposure time or integration time used for the measurement.
+        device_id : str
+            Unique identifier for the measuring device.
+        no_compute : bool, optional
+            If True, skip calculation of derived color properties (CCT, xy, etc.).
+            Default is False.
+
+        Raises
+        ------
+        RuntimeError
+            If XYZ array is not size 3.
+        """
         XYZ = np.asarray(XYZ)
         if XYZ.size != (3,):
             RuntimeError("XYZ must be size (3,)")
@@ -74,6 +124,19 @@ class ColorimeterMeasurement:
             self.time = datetime.now().astimezone()
 
     def __eq__(self, other: object) -> bool:
+        """
+        Check equality between ColorimeterMeasurement objects.
+
+        Parameters
+        ----------
+        other : object
+            Object to compare with this measurement.
+
+        Returns
+        -------
+        bool
+            True if all measurement attributes are equal, False otherwise.
+        """
         if isinstance(other, ColorimeterMeasurement):
             keys = [
                 "XYZ",
@@ -102,8 +165,8 @@ class ColorimeterMeasurement:
             f"""
             Colorimeter Measurement - {self.device_id}:
                 time: {self.time}
-                XYZ: {np.array2string(self.XYZ, formatter={'float_kind':lambda x: "%.2f" % x})}
-                xy: {np.array2string(self.xy, formatter={'float_kind':lambda x: "%.4f" % x})}
+                XYZ: {np.array2string(self.XYZ, formatter={"float_kind": lambda x: f"{x:.2f}"})}
+                xy: {np.array2string(self.xy, formatter={"float_kind": lambda x: f"{x:.4f}"})}
                 CCT: {self.cct:.0f} ± {self.duv:.5f}
                 Dominant WL: {self.dominant_wl:.1f} @ {self.purity * 100:.1f}%
                 Exposure: {self.exposure:.3f}
@@ -205,5 +268,3 @@ class Colorimeter(ABC):
         return ColorimeterMeasurement.FromRaw(
             RawColorimeterMeasurement(XYZ=XYZ, exposure=exposure, device_id=id)
         )
-
-
