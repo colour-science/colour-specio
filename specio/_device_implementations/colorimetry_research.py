@@ -24,12 +24,24 @@ from specio.common import RawSPDMeasurement, SpecRadiometer
 from specio.common.colorimeters import Colorimeter, RawColorimeterMeasurement
 from specio.common.utility import specio_warning
 
+__version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
-__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+__license__ = "BSD-3-Clause"
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
+
+__all__ = [
+    "InstrumentType",
+    "Model",
+    "ResponseType", 
+    "ResponseCode",
+    "CommandResponse",
+    "CRSpectrometer",
+    "CRColorimeter",
+    "CommandError",
+]
 
 
 _COMMAND_TIMEOUT = 0.05

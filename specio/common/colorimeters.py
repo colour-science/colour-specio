@@ -21,14 +21,20 @@ from colour.hints import ArrayLike
 from colour.models.cie_xyy import XYZ_to_xy
 from colour.temperature.ohno2013 import XYZ_to_CCT_Ohno2013
 
+__version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
-__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+__license__ = "BSD-3-Clause"
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
-__all__ = []
+__all__ = [
+    "RawColorimeterMeasurement",
+    "ColorimeterMeasurement",
+    "Colorimeter",
+    "VirtualColorimeter",
+]
 
 
 @dataclass

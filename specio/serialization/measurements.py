@@ -11,6 +11,23 @@ from colour import SpectralDistribution, SpectralShape
 from specio.common import ColorimeterMeasurement, SPDMeasurement
 from specio.serialization.protobuf import common_pb2, measurements_pb2
 
+__version__ = "0.4.1.post0"
+__author__ = "Tucker Downs"
+__copyright__ = "Copyright 2022 Specio Developers"
+__license__ = "BSD-3-Clause"
+__maintainer__ = "Tucker Downs"
+__email__ = "tucker@tjdcs.dev"
+__status__ = "Development"
+
+__all__ = [
+    "colorimeter_measurement_to_proto",
+    "colorimeter_measurement_to_bytes",
+    "colorimeter_measurement_from_bytes",
+    "spd_measurement_to_proto",
+    "spd_measurement_to_bytes",
+    "spd_measurement_from_bytes",
+]
+
 
 def colorimeter_measurement_to_proto(
     col: ColorimeterMeasurement,

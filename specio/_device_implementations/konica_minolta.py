@@ -21,6 +21,28 @@ from serial.tools.list_ports_common import ListPortInfo
 
 from specio.common import RawSPDMeasurement, SpecRadiometer
 
+__version__ = "0.4.1.post0"
+__author__ = "Tucker Downs"
+__copyright__ = "Copyright 2022 Specio Developers"
+__license__ = "BSD-3-Clause"
+__maintainer__ = "Tucker Downs"
+__email__ = "tucker@tjdcs.dev"
+__status__ = "Development"
+
+__all__ = [
+    "ResponseCode",
+    "CommandResponse",
+    "SyncMode",
+    "SyncSpeedSetting",
+    "InternalNDMode",
+    "SpeedMode", 
+    "SpeedModeSetting",
+    "CS2000",
+    "DEFAULT_SPEED_MODE_SETTING",
+    "HIGH_ACCURACY_MODE_SETTING",
+    "WriteCommandError",
+]
+
 
 class ResponseCode(aenum.MultiValueEnum):
     """Defines various CS2000 response codes and helpful error messages as a
