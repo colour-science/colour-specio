@@ -27,10 +27,10 @@ built around the colour-science library and provides:
 
 ### Code Quality and Linting
 
-- `ruff check` - Run linting with Ruff
-- `ruff format` - Format code with Ruff
-- `ruff check --fix` - Auto-fix linting issues
-- `pyright` - Type checking with Pyright
+- `uv run ruff check` - Run linting with Ruff
+- `uv run ruff format` - Format code with Ruff
+- `uv run ruff check --fix` - Auto-fix linting issues
+- `uv run pyright` - Type checking with Pyright
 
 #### Self Documenting Code
 
@@ -38,24 +38,16 @@ All pyrhon functions should have doc strings, type annotations, and return
 types. Do not use overly complicated types. Use numpy types when applicable,
 i.e. `npt.ArrayLike`
 
-### Testing
-
-- `pytest` - Run all tests
-- `pytest -x` - Stop on first failure
-- `pytest -xvs` - Verbose output, stop on first failure
-- `pytest specio/serialization/tests/` - Run specific test directory
-- `pytest specio/scripts/tests/test_csmf_anonymize.py` - Run specific test file
-
 ### Protocol Buffers
 
-- `./scripts/build_proto.zsh` - Build protobuf files (requires protoc v27.0+)
+- `uv run invoke build-proto` - Build protobuf files (requires protoc v27.0+)
 - Generates `*_pb2.py` and `*_pb2.pyi` files in `specio/serialization/protobuf/`
 - Protocol buffer definitions are in `specio/serialization/protobuf/*.proto`
 
 ### Scripts
 
-- `csmf_doctor` - Diagnose and repair .csmf files
-- `csmf_anonymize` - Anonymize measurement data in .csmf files
+- `uv run csmf_doctor` - Diagnose and repair .csmf files
+- `uv run csmf_anonymize` - Anonymize measurement data in .csmf files
 
 ## Architecture
 
@@ -105,6 +97,7 @@ pattern:
 - Import sorting with Ruff (trailing commas, known first-party)
 - Numpy docstring convention
 - Type hints required (checked with Pyright)
+- Empty lines should never have whitespace
 
 ### Dependencies
 
