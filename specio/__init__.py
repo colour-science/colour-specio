@@ -18,7 +18,7 @@ from .common.spectrometers import (
     SPDMeasurement,
     VirtualSpectrometer,
 )
-from .device_implementations import colorimetry_research, konica_minolta
+from ._device_implementations import colorimetry_research, konica_minolta
 
 __all__ = [
     "SPDMeasurement",
