@@ -1,5 +1,10 @@
 .sandbox
-poetry.lock
+.secrets
+
+# Data Folder - TJD
+data/**/*
+!data/0f342ef2_v0.csmf
+!.gitkeep
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,windows,linux,python,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,windows,linux,python,visualstudiocode
@@ -270,5 +275,7 @@ $RECYCLE.BIN/
 
 .idea/
 
+# Data Folder - TJD
 data/**/*
+!data/0f342ef2_v0.csmf
 !.gitkeep

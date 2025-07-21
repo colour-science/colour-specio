@@ -1,13 +1,9 @@
 [project]
 name = "colour-specio"
-version = "0.4.1.post0"
+version = "0.4.2a0"
 description = "Instrument control for spectrometers"
-authors = [
-    { name = "Tucker Downs", email = "tucker@tjdcs.dev" },
-]
-maintainers = [
-    { name = "Tucker Downs", email = "tucker@tjdcs.dev" },
-]
+authors = [{ name = "Tucker Downs", email = "tucker@tjdcs.dev" }]
+maintainers = [{ name = "Tucker Downs", email = "tucker@tjdcs.dev" }]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.13,<3.14"
@@ -80,11 +76,7 @@ dev = [
     "pytest-xdist>=3.6.0",
     "ruff>=0.12.3",
 ]
-extras = [
-    "matplotlib>=3.7.0",
-    "ipykernel>=6.25.0",
-    "pandas>=2.0.0",
-]
+extras = ["matplotlib>=3.7.0", "ipykernel>=6.25.0", "pandas>=2.0.0"]
 
 [tool.ruff]
 line-length = 88
