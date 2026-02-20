@@ -32,7 +32,7 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
     @classmethod
     def discover(
         cls, expected_instrument_type: InstrumentType | None = None
-    ) -> "CRColorimeter":
+    ) -> CRColorimeter:
         """Attempt automatic discovery of the CR serial port and return the
         CR colorimeter object.
 

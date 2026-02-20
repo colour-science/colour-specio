@@ -1,6 +1,6 @@
 """Invoke tasks for code quality and formatting."""
 
-from invoke.context import Context
+from invoke.context import Context  # noqa: TC002
 from invoke.tasks import task
 
 

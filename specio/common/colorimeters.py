@@ -5,10 +5,9 @@ Define basic colorimeter interfaces
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 import numpy as np
-from colour.hints import ArrayLike
 from colour.temperature.ohno2013 import XYZ_to_CCT_Ohno2013
 
 from ._measurements_shared import (
@@ -16,6 +15,9 @@ from ._measurements_shared import (
     compute_color_properties,
     validate_repetitions,
 )
+
+if TYPE_CHECKING:
+    from colour.hints import ArrayLike
 
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"

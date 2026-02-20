@@ -6,7 +6,7 @@ authors = [{ name = "Tucker Downs", email = "tucker@tjdcs.dev" }]
 maintainers = [{ name = "Tucker Downs", email = "tucker@tjdcs.dev" }]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.12,<3.14"
+requires-python = ">=3.12,<3.15"
 keywords = [
     "colour-science",
     "spectrometer",
@@ -26,18 +26,20 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering",
     "Topic :: System :: Hardware :: Hardware Drivers",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "colour-science>=0.4.6",
-    "numpy>=2.3.1",
+    "colour-science>=0.4.7",
+    "numpy>=2.4.2",
     "pyserial>=3.5",
-    "protobuf>=5.27.0",
+    "protobuf>=6.33.5",
     "bidict>=0.23.1",
     "aenum>=3.1.16",
-    "xxhash>=3.5.0",
+    "xxhash>=3.6.0",
+    "scipy>=1.15.0",
 ]
 
 [project.urls]
@@ -69,18 +71,19 @@ exclude = [
 
 [dependency-groups]
 dev = [
-    "invoke>=2.2.0",
-    "pre-commit>=4.2.0",
-    "pyright>=1.1.403",
-    "pytest>=8.4.1",
-    "pytest-xdist>=3.6.0",
-    "ruff>=0.12.3",
+    "invoke>=2.2.1",
+    "pre-commit>=4.5.1",
+    "protoc-wheel-0>=30.2",
+    "pyright>=1.1.408",
+    "pytest>=9.0.2",
+    "pytest-xdist>=3.8.0",
+    "ruff>=0.15.2",
 ]
 extras = ["matplotlib>=3.7.0", "ipykernel>=6.25.0", "pandas>=2.0.0"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py313"
+target-version = "py314"
 exclude = ["*_pb2.py", "*_pb2.pyi"]
 
 [tool.ruff.lint]
@@ -127,7 +130,7 @@ include = ["examples", "tests", "specio"]
 exclude = ["**/__pycache__", "**/*_pb2.py", "**/*_pb2.pyi"]
 venvPath = "."
 venv = ".venv"
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 typeCheckingMode = "standard"
 reportMissingImports = true
 reportMissingTypeStubs = false
@@ -138,7 +141,6 @@ reportUnusedVariable = true
 reportDuplicateImport = true
 reportInconsistentConstructor = true
 reportMissingParameterType = true
-reportMissingReturnType = true
 reportUnnecessaryTypeIgnoreComment = true
 reportMissingModuleSource = false
 reportUnboundVariable = false

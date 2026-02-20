@@ -6,22 +6,21 @@ namely the CS2000.
 import platform
 import struct
 import time
-from collections.abc import Mapping
 from enum import Enum
 from functools import cached_property
 from textwrap import dedent
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, NamedTuple, cast, final
+from typing import TYPE_CHECKING, Any, NamedTuple, final
 
 import aenum
 import serial
 from colour import SpectralDistribution, SpectralShape
 from serial.tools import list_ports
 
-if TYPE_CHECKING:
-    from serial.tools.list_ports_common import ListPortInfo
-
 from specio.common import RawSPDMeasurement, SpecRadiometer
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
@@ -199,7 +198,7 @@ class CS2000(SpecRadiometer):
     )
 
     @classmethod
-    def discover(cls) -> "CS2000":
+    def discover(cls) -> CS2000:
         """Attempt automatic discovery of the CS2000 serial port and return the
         CS2000 object.
 
@@ -222,8 +221,6 @@ class CS2000(SpecRadiometer):
             )
 
         for p in possible_ports:
-            p = cast("ListPortInfo", p)  # Typing for `Serial` is wrong
-
             sp = serial.Serial(p.device, **cls.CS2000_SERIAL_KWARGS)
             sp.read_all()
             sp.write(b"RMTS,1\n")
