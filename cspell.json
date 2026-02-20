@@ -105,7 +105,11 @@
     "Dunder",
     "typings",
     "allclose",
-    "scipy"
+    "scipy",
+    "usbserial",
+    "spectrascan",
+    "Spectra",
+    "SpectraScan"
   ],
   "ignorePaths": [
     "**/node_modules/**",
