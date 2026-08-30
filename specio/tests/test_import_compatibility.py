@@ -52,8 +52,7 @@ def test_type_checking_imports_are_deferred() -> None:
     assert not offenders, (
         "these modules import under TYPE_CHECKING without "
         f"`{FUTURE_IMPORT}`, so any annotation naming those imports raises "
-        "NameError below Python 3.14: "
-        + ", ".join(str(p) for p in offenders)
+        "NameError below Python 3.14: " + ", ".join(str(p) for p in offenders)
     )
 
 
