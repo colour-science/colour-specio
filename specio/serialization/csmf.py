@@ -8,8 +8,10 @@ from colour.colorimetry.spectrum import MultiSpectralDistributions
 from colour.hints import NDArray
 from numpy import ndarray
 
-from specio.common import SPDMeasurement
+from specio.common import ColorimeterMeasurement, SPDMeasurement
 from specio.serialization.measurements import (
+    colorimeter_measurement_from_bytes,
+    colorimeter_measurement_to_proto,
     spd_measurement_from_bytes,
     spd_measurement_to_proto,
 )
@@ -58,6 +60,12 @@ class CSMF_Data:
         default_factory=lambda: np.empty_like(prototype=SPDMeasurement)
     )
     metadata: CSMF_Metadata = field(default_factory=CSMF_Metadata)
+    ancillary: bytes = b""
+    """Opaque caller bytes carried through the file.
+
+    The schema reserves the field so a caller can attach provenance CSMF
+    does not model. specio neither interprets nor validates it.
+    """
 
     @property
     def shortname(self) -> str:
@@ -84,6 +92,7 @@ class CSMF_Data:
                     np.all(self.order == value.order),
                     np.all(self.measurements == value.measurements),
                     self.metadata == value.metadata,
+                    self.ancillary == value.ancillary,
                 )
             )
         return False
@@ -94,9 +103,29 @@ def csmf_data_to_buffer(  # noqa: C901
 ) -> measurements_pb2.CSFM_File:
     pbuf = measurements_pb2.CSFM_File()
 
-    for m in ml.measurements:
-        m_pbuf = spd_measurement_to_proto(m)
-        pbuf.spd_measurements.append(m_pbuf)
+    # A colorimeter reading has no spectrum, so it cannot go in
+    # `spd_measurements`. The `measurements` wrapper holds either kind and
+    # keeps them in one ordered list, which is what `order` and
+    # `test_colors` index into.
+    #
+    # Files of spectral readings alone keep using the legacy field, and so
+    # serialize exactly as they always did — readers predating the wrapper
+    # go on reading them.
+    if any(isinstance(m, ColorimeterMeasurement) for m in ml.measurements):
+        for m in ml.measurements:
+            wrapper = measurements_pb2.CSFM_File.Measurement()
+            if isinstance(m, ColorimeterMeasurement):
+                wrapper.xyz.CopyFrom(colorimeter_measurement_to_proto(m))
+            else:
+                wrapper.spd.CopyFrom(spd_measurement_to_proto(m))
+            pbuf.measurements.append(wrapper)
+    else:
+        for m in ml.measurements:
+            m_pbuf = spd_measurement_to_proto(m)
+            pbuf.spd_measurements.append(m_pbuf)
+
+    if ml.ancillary:
+        pbuf.ancillary = ml.ancillary
 
     if ml.metadata.notes:
         pbuf.notes = ml.metadata.notes
@@ -175,10 +204,24 @@ def load_csmf_file(file: str | Path, recompute: bool = False) -> CSMF_Data:
     pbuf = measurements_pb2.CSFM_File()
     pbuf.ParseFromString(data_string)
 
+    # Prefer the wrapper: it is the only field that can carry a
+    # colorimeter reading, and a writer that used it put every row there.
+    # Fall back to the legacy field for files written before it.
     measurements = []
-    for mbuf in pbuf.spd_measurements:
-        measurements.append(spd_measurement_from_bytes(mbuf, recompute=recompute))
-    measurements = np.asarray(measurements)
+    if len(pbuf.measurements) > 0:
+        for wrapper in pbuf.measurements:
+            if wrapper.HasField("xyz"):
+                measurements.append(
+                    colorimeter_measurement_from_bytes(wrapper.xyz, recompute=recompute)
+                )
+            else:
+                measurements.append(
+                    spd_measurement_from_bytes(wrapper.spd, recompute=recompute)
+                )
+    else:
+        for mbuf in pbuf.spd_measurements:
+            measurements.append(spd_measurement_from_bytes(mbuf, recompute=recompute))
+    measurements = np.asarray(measurements, dtype=object)
 
     tcs = []
     for color in pbuf.test_colors:
@@ -193,4 +236,5 @@ def load_csmf_file(file: str | Path, recompute: bool = False) -> CSMF_Data:
         order=np.asarray(pbuf.order),
         test_colors=tcs,
         metadata=CSMF_Metadata(pbuf.notes, pbuf.author, pbuf.location, pbuf.software),
+        ancillary=pbuf.ancillary,
     )
