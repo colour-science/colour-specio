@@ -3,6 +3,8 @@ Define classes and functions for controlling Konica-Minolta brand spectrometers,
 namely the CS2000.
 """
 
+from __future__ import annotations
+
 import platform
 import struct
 import time
