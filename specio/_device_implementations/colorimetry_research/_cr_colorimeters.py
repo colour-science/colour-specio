@@ -3,10 +3,11 @@ Colorimetry Research colorimeter implementation.
 """
 
 import re
-from typing import cast, final
+from typing import Self, final
 
 import bidict
 import numpy as np
+from aenum import MultiValueEnum
 
 from specio.common.colorimeters import Colorimeter, RawColorimeterMeasurement
 from specio.common.utility import specio_warning
@@ -28,6 +29,16 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         A error was encountered in parsing the result of the serial command to
         the hardware device.
     """
+
+    class MeasurementSpeed(MultiValueEnum):
+        """
+        Controls the measurement speed when the CR Exposure Mode is set to "auto"
+        """
+
+        SLOW: Self = 0, "0", "slow"  # type: ignore
+        NORMAL: Self = 1, "1", "normal"  # type: ignore
+        FAST: Self = 2, "2", "fast"  # type: ignore
+        FAST_2X: Self = 3, "3", "2x fast"  # type: ignore
 
     @classmethod
     def discover(
@@ -76,6 +87,39 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         self._warn_filter_selection()
 
     @property
+    def measurement_speed(self) -> MeasurementSpeed:
+        """The automatic measurement speed of the hardware when in "auto" timing
+
+        Returns
+        -------
+        MeasurementSpeed
+        """
+        response = self._write_cmd("SM ExposureMode 0")
+        response = self._write_cmd("RS Speed")
+        self._measurement_speed = CRColorimeter.MeasurementSpeed(
+            response.arguments[0].lower()
+        )
+        return self._measurement_speed
+
+    @measurement_speed.setter
+    def measurement_speed(self, speed: MeasurementSpeed) -> None:
+        """
+        Set the automatic measurement speed of the hardware.
+
+        Parameters
+        ----------
+        speed : MeasurementSpeed
+            The desired measurement speed setting.
+
+        Raises
+        ------
+        CommandError
+            If the speed setting command fails.
+        """
+        _ = self._write_cmd(f"SM Speed {speed.values[0]}")
+        self._measurement_speed = speed
+
+    @property
     def available_filters(self) -> bidict.bidict[int, str]:
         """
         Get the mapping of available optical filters for the colorimeter.
@@ -95,8 +139,13 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
             response = self._write_cmd("RC Filter")
             filters = bidict.bidict()
             for arg in response.arguments:
-                arg = cast("bytes", arg)
-                items = arg.decode().strip().split(",")
+                arg = arg.decode() if isinstance(arg, bytes) else arg
+                arg = arg.strip()
+                # A device with no filters configured reports just the count
+                # (e.g. "0") on the header line instead of any filter rows.
+                if "," not in arg:
+                    continue
+                items = arg.split(",")
                 filters[int(items[0])] = items[1]
             filters[0] = "None"
             self._available_filters = filters
