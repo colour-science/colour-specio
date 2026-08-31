@@ -228,14 +228,17 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         measurement accuracy and should be verified by the user.
         """
         cur = self.current_filters
-        if len(cur) == 0:
+        # current_filters always has one entry per filter slot (Filter1-3), so
+        # count only the slots that actually have a filter selected (id != 0/"None").
+        active = [f for f in cur if f != 0]
+        if len(active) == 0:
             specio_warning("Check colorimeter has no active filters.")
-        elif len(cur) == 1:
+        elif len(active) == 1:
             specio_warning(
-                f"Check colorimeter has one filter: {self.available_filters[cur[0]]}"
+                f"Check colorimeter has one filter: {self.available_filters[active[0]]}"
             )
         else:
-            filters_string = ", ".join([self.available_filters[f] for f in cur])
+            filters_string = ", ".join([self.available_filters[f] for f in active])
             specio_warning(f"Check colorimeter has stacked filters: {filters_string}.")
 
     def _raw_measure(self) -> RawColorimeterMeasurement:
