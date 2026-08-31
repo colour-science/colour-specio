@@ -13,7 +13,14 @@ import numpy as np
 from specio.common.colorimeters import Colorimeter, RawColorimeterMeasurement
 from specio.common.utility import specio_warning
 
-from ._common import CRDeviceBase, InstrumentType
+from ._common import (
+    _MAX_AVERAGE_SAMPLES,
+    CommandError,
+    CRDeviceBase,
+    IncompleteResponse,
+    InstrumentType,
+    UnexpectedResponse,
+)
 
 
 @final
@@ -207,7 +214,16 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         """
         t = self._port.timeout
 
-        self._port.apply_settings({"timeout": 10 + 0.5 * self.average_samples})
+        # Sizing the read window must not be able to fail the read. The
+        # multiplier is cached after the first query, but a link that has
+        # lost sync can still answer this with the previous command's
+        # reply -- and aborting here would fail a measurement that had not
+        # yet been asked for. Fall back to the widest window instead.
+        try:
+            samples = self.average_samples
+        except (CommandError, IncompleteResponse, UnexpectedResponse):
+            samples = _MAX_AVERAGE_SAMPLES
+        self._port.apply_settings({"timeout": 10 + 0.5 * samples})
         response = self._write_cmd("M")
 
         self._port.apply_settings({"timeout": 0.21})
