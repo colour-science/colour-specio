@@ -73,6 +73,7 @@ class Model(Enum):
 
     CR300 = "CR-300"
     CR250 = "CR-250"
+    CR100 = "CR-100"
 
 
 class ResponseType(bytes, Enum):
