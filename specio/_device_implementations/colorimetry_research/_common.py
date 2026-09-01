@@ -34,11 +34,13 @@ _MAX_AVERAGE_SAMPLES = 50
 """The exposure multiplier's upper bound, per the CR command set."""
 
 __all__ = [
+    "OUT_OF_RANGE_CODES",
     "CRDeviceBase",
     "CommandError",
     "CommandResponse",
     "IncompleteResponse",
     "InstrumentType",
+    "MeasurementOutOfRange",
     "Model",
     "ResponseCode",
     "ResponseType",
@@ -200,6 +202,41 @@ class CommandError(Exception):
     def __init__(self, response: CommandResponse, *args: object) -> None:
         self.response = response
         super().__init__(*args)
+
+    @property
+    def code(self) -> ResponseCode:
+        """The device's own code for what went wrong."""
+        return self.response.code
+
+
+class MeasurementOutOfRange(CommandError):
+    """The device measured, and the light is outside what it can report.
+
+    A distinct type because it is a *result*, not a failure to obtain
+    one. The instrument integrated, decided the target sits below its
+    floor or above its ceiling, and said so — which is the correct
+    answer to "how much light is there", and nothing a caller retries
+    its way out of.
+
+    Callers act on it rather than swallow it: a session that meets this
+    at the bottom of a display's range routes the patch to a more
+    sensitive instrument, and one that meets it at the top has an
+    aperture or a filter problem. Retrying instead spends the
+    integration again to be told the same true thing.
+    """
+
+
+# The codes that mean "measured, and out of range" rather than "the
+# exchange went wrong". Colorimetry Research distinguishes them; this
+# library did not, so every caller saw one opaque CommandError.
+OUT_OF_RANGE_CODES = frozenset(
+    {
+        ResponseCode.TOO_DARK,
+        ResponseCode.LIGHT_INTENSITY_TOO_LOW,
+        ResponseCode.LIGHT_INTENSITY_UNMEASURABLE,
+        ResponseCode.LIGHT_INTENSITY_TOO_HIGH,
+    }
+)
 
 
 class IncompleteResponse(Exception):
@@ -533,7 +570,18 @@ class CRDeviceBase(ABC):
             raise
 
         if response.type == ResponseType.ERROR:
-            raise CommandError(response, response.arguments[0])
+            # The device does not always attach an argument to an error,
+            # and indexing one that is not there turned the device's
+            # report into an IndexError from inside this library — the
+            # caller then saw a crash where the instrument had sent a
+            # perfectly clear message. Fall back to the description it
+            # always sends.
+            detail = (
+                response.arguments[0] if response.arguments else response.description
+            )
+            if response.code in OUT_OF_RANGE_CODES:
+                raise MeasurementOutOfRange(response, detail)
+            raise CommandError(response, detail)
         else:
             return response
 
@@ -570,17 +618,21 @@ class CRDeviceBase(ABC):
             Structured response containing parsed type, code, description and arguments.
         """
         response = data.strip().split(b":")
-        # A CR response is `type:code:description:...`. Fewer fields means
-        # the device answered nothing or was cut off mid-line -- indexing
-        # [3] here is what used to raise IndexError from inside a
-        # measurement and leave the caller with no way to tell a timeout
-        # from a protocol error.
-        if len(response) < 4:
+        # A CR response is at least `type:code:description`. Fewer fields
+        # means the device answered nothing or was cut off mid-line. A
+        # device error such as `E:100:M` has exactly three and is complete.
+        if len(response) < 3:
             raise IncompleteResponse(self.__last_command, data)
 
         args = []
+        # A device error carries no fourth field at all — `E:100:M` is a
+        # complete reply meaning "too dark". Reading past it turned the
+        # instrument's own report into an IndexError raised from inside
+        # this library, so a caller saw a crash where the device had said
+        # something clear. Observed on a CR-300 reading a capped aperture.
         if (
-            response[3].decode().isnumeric()
+            len(response) > 3
+            and response[3].decode().isnumeric()
             and int(response[3]) > 0
             and self._port.in_waiting
         ):
