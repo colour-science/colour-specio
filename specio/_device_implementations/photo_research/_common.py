@@ -37,6 +37,9 @@ _CHAR_WRITE_DELAY = 0.01
 _DEFAULT_SERIAL_TIMEOUT = 5.0
 _REMOTE_MODE_TIMEOUT = 10.0
 _CODE_PATTERN = re.compile(r"[+-]?\d+")
+_REMOTE_MODE_COMMAND = "PHOTO"
+_REMOTE_MODE_REPLY = b"REMOTE MODE"
+_QUIT_COMMAND = "Q"
 _PR_SERIAL_KWARGS: Mapping = MappingProxyType(
     {
         "baudrate": 9600,
@@ -175,12 +178,52 @@ class PRDeviceBase(ABC):
         ------
         serial.SerialException
             If the serial port cannot be opened or configured.
-        PRCommandError
-            If the remote mode handshake fails.
+        DeviceError
+            If the remote mode handshake fails. The port is closed first.
         """
         self._last_cmd_time: float = 0
         self._port = serial.Serial(port, **_PR_SERIAL_KWARGS)
-        self._enter_remote_mode()
+        try:
+            self._enter_remote_mode()
+        except BaseException:
+            self._port.close()
+            raise
+
+    def __enter__(self) -> Self:
+        """
+        Return the device for use in a ``with`` block.
+
+        Returns
+        -------
+        Self
+            This device, already in remote mode.
+        """
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        """
+        Exit remote mode and close the port when the ``with`` block ends.
+
+        Parameters
+        ----------
+        *exc_info : object
+            The exception type, value and traceback, if any.
+        """
+        self.close()
+
+    def close(self) -> None:
+        """
+        Exit remote mode and close the serial port.
+
+        Returns the instrument to local (front panel) control. Calling
+        ``close`` on a closed device does nothing.
+        """
+        if not self._port.is_open:
+            return
+        try:
+            self._exit_remote_mode()
+        finally:
+            self._port.close()
 
     def _write_serial(self, message: str) -> None:
         """
@@ -203,23 +246,24 @@ class PRDeviceBase(ABC):
         """
         Enter remote control mode via PHOTO handshake.
 
-        Sends the "PHOTO" command character-by-character. The device
-        responds with "REMOTE MODE" on success.
+        Sends the five characters ``PHOTO`` one at a time with no
+        terminator. The device responds with ``REMOTE MODE`` on success.
 
         Raises
         ------
-        PRCommandError
+        DeviceError
             If the device does not respond to the handshake.
         """
         log = logging.getLogger("specio.PR")
         log.debug("Entering remote mode")
 
         self._port.reset_input_buffer()
-        self._write_serial("PHOTO\r")
-        response = self._read_response(timeout=_REMOTE_MODE_TIMEOUT)
+        self._write_serial(_REMOTE_MODE_COMMAND)
+        with self._port_timeout(_REMOTE_MODE_TIMEOUT):
+            reply = self._port.read_until(_REMOTE_MODE_REPLY)
 
-        if "REMOTE MODE" not in response:
-            raise DeviceError(f"Unexpected handshake response: {response!r}")
+        if _REMOTE_MODE_REPLY not in reply:
+            raise DeviceError(f"Unexpected handshake response: {reply!r}")
 
         log.debug("Remote mode entered successfully")
 
@@ -227,11 +271,12 @@ class PRDeviceBase(ABC):
         """
         Exit remote control mode by sending the quit command.
 
-        Sends "Q" to return the device to local control.
+        Sends ``Q`` with no terminator to return the device to local
+        control. The device sends no reply.
         """
         log = logging.getLogger("specio.PR")
         log.debug("Exiting remote mode")
-        self._write_serial("Q\r")
+        self._write_serial(_QUIT_COMMAND)
 
     @contextmanager
     def _port_timeout(self, timeout: float | None) -> Iterator[None]:
