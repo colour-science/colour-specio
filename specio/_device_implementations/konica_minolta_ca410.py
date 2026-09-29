@@ -48,6 +48,9 @@ USB_VENDOR_ID = 0x132B
 USB_PRODUCT_ID = 0x210D
 """USB product ID of a CA-410 probe."""
 
+PRODUCT_NAME = "CA-410"
+"""Product name in the first field of the ``IDO`` reply (p. 27)."""
+
 DELIMITER = b"\r"
 """Terminator for every command and reply."""
 
@@ -185,6 +188,10 @@ class CA410Error(DeviceError):
         self.code = code
 
 
+class _UnidentifiedPortError(CA410Error):
+    """Raised when a port does not identify itself as a CA-410."""
+
+
 class Command(NamedTuple):
     """A command the driver sends, and the shape of its successful reply."""
 
@@ -277,16 +284,30 @@ class CA410(Colorimeter):
         CA410
             The connected probe.
 
+        Ports that can't be opened, or that don't identify themselves as a
+        CA-410, are skipped. Once a port identifies as a CA-410, errors from
+        connecting to it propagate.
+
         Raises
         ------
         serial.SerialException
-            If no matching port answers the identity command.
+            If no matching port identifies itself as a CA-410.
+        CA410Error
+            If a CA-410 fails to connect, for example because zero calibration
+            fails.
         """
         for device in candidate_ports():
             try:
-                return cls(device)
-            except (CA410Error, serial.SerialException):
+                port = serial.Serial(device, **cls.SERIAL_KWARGS)
+            except serial.SerialException:
                 continue
+
+            try:
+                return cls(port)
+            except BaseException as e:
+                port.close()
+                if not isinstance(e, _UnidentifiedPortError):
+                    raise
 
         raise serial.SerialException(
             dedent(
@@ -303,20 +324,48 @@ class CA410(Colorimeter):
         port : serial.Serial | str
             An open serial port, or the name of the port to open with
             :attr:`SERIAL_KWARGS`. The driver sets the port timeout before
-            each command.
+            each command. If the driver opened the port and connecting fails,
+            it closes the port again.
 
         Raises
         ------
         CA410Error
-            If the probe does not answer, answers with a malformed reply, or
-            reports an error.
+            If the device is not a CA-410, does not answer, answers with a
+            malformed reply, or reports an error.
         """
+        opened_here = isinstance(port, str)
         if isinstance(port, str):
             port = serial.Serial(port, **self.SERIAL_KWARGS)
 
         self._port = port
+        try:
+            self._connect()
+        except BaseException:
+            if opened_here:
+                port.close()
+            raise
 
-        identity = self._write_cmd(IDENTIFY)
+    def _connect(self) -> None:
+        """Identify the probe and make sure it is zero calibrated.
+
+        Raises
+        ------
+        CA410Error
+            If the device does not identify itself as a CA-410, or zero
+            calibration fails.
+        """
+        try:
+            identity = self._write_cmd(IDENTIFY)
+        except CA410Error as e:
+            raise _UnidentifiedPortError(
+                f"{self._port.name} did not identify as a CA-410: {e}", e.code
+            ) from e
+
+        if identity[0] != PRODUCT_NAME:
+            raise _UnidentifiedPortError(
+                f"{self._port.name} identifies as {identity[0]!r}, not a CA-410"
+            )
+
         self._product = identity[0]
         self._probe_model = identity[2].strip()
         self._firmware = identity[3]

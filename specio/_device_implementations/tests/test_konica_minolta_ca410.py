@@ -93,6 +93,25 @@ def make_port(**overrides: bytes | list[bytes]) -> StreamPort:
     return StreamPort(replies)
 
 
+def attach_ports(
+    monkeypatch: pytest.MonkeyPatch, ports: Mapping[str, StreamPort | None]
+) -> None:
+    """List ``ports`` as CA-410 USB ports, and open them by name.
+
+    A port mapped to None fails to open.
+    """
+
+    def open_port(device: str, **kwargs: object) -> StreamPort:
+        port = ports[device]
+        if port is None:
+            raise serial.SerialException(f"could not open port {device}")
+        return port
+
+    listed = [SimpleNamespace(device=d, vid=0x132B, pid=0x210D) for d in ports]
+    monkeypatch.setattr(konica_minolta_ca410.list_ports, "comports", lambda: listed)
+    monkeypatch.setattr(konica_minolta_ca410.serial, "Serial", open_port)
+
+
 class TestConnect:
     def test_reads_identity(self):
         ca = CA410(make_port())
@@ -133,6 +152,29 @@ class TestConnect:
 
         with pytest.raises(CA410Error, match="No response"):
             CA410(port)
+
+    def test_rejects_other_product(self):
+        port = make_port(IDO_0_1=IDENTITY_REPLY.replace(b"CA-410", b"CA-310"))
+
+        with pytest.raises(CA410Error, match="CA-310"):
+            CA410(port)
+
+    def test_closes_port_it_opened_when_connect_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        port = make_port(STR_23=b"OK00,0\r", ZRC=b"ER21\r")
+        attach_ports(monkeypatch, {"/dev/cu.ca410": port})
+
+        with pytest.raises(CA410Error):
+            CA410("/dev/cu.ca410")
+        assert port.was_closed
+
+    def test_leaves_callers_port_open_when_connect_fails(self):
+        port = make_port(STR_23=b"OK00,0\r", ZRC=b"ER21\r")
+
+        with pytest.raises(CA410Error):
+            CA410(port)
+        assert not port.was_closed
 
 
 class TestZeroCalibrate:
@@ -288,3 +330,37 @@ class TestDiscover:
         monkeypatch.setattr(konica_minolta_ca410.list_ports, "comports", lambda: ports)
 
         assert konica_minolta_ca410.candidate_ports() == ["/dev/cu.ca410"]
+
+    def test_propagates_error_from_a_ca410(self, monkeypatch: pytest.MonkeyPatch):
+        port = make_port(STR_23=b"OK00,0\r", ZRC=b"ER21\r")
+        attach_ports(monkeypatch, {"/dev/cu.ca410": port})
+
+        with pytest.raises(CA410Error) as e:
+            CA410.discover()
+        assert e.value.code == "ER21"
+        assert port.was_closed
+
+    def test_skips_ports_that_are_not_a_ca410(self, monkeypatch: pytest.MonkeyPatch):
+        other = make_port(IDO_0_1=IDENTITY_REPLY.replace(b"CA-410", b"CA-310"))
+        silent = make_port(IDO_0_1=b"")
+        ca410 = make_port()
+        attach_ports(
+            monkeypatch,
+            {
+                "/dev/busy": None,
+                "/dev/other": other,
+                "/dev/silent": silent,
+                "/dev/ca": ca410,
+            },
+        )
+
+        assert CA410.discover().serial_number == "80005086"
+        assert other.was_closed
+        assert silent.was_closed
+        assert not ca410.was_closed
+
+    def test_raises_when_no_port_is_a_ca410(self, monkeypatch: pytest.MonkeyPatch):
+        attach_ports(monkeypatch, {"/dev/silent": make_port(IDO_0_1=b"")})
+
+        with pytest.raises(serial.SerialException, match="Couldn't find a CA-410"):
+            CA410.discover()
