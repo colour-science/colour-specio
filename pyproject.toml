@@ -79,7 +79,6 @@ dev = [
     "pytest-xdist>=3.8.0",
     "ruff>=0.15.2",
 ]
-extras = ["matplotlib>=3.7.0", "ipykernel>=6.25.0", "pandas>=2.0.0"]
 
 [tool.ruff]
 line-length = 88
