@@ -240,6 +240,32 @@ class TestReplyFraming:
             CA410(make_port(**overrides)).measure()
 
 
+class TestTimeouts:
+    def test_each_command_waits_its_own_timeout(self):
+        port = make_port(STR_23=b"OK00,0\r")
+
+        CA410(port).measure()
+
+        assert port.read_timeouts == {
+            "IDO,0,1": konica_minolta_ca410.QUERY_TIMEOUT,
+            "STR,23": konica_minolta_ca410.QUERY_TIMEOUT,
+            "ZRC": konica_minolta_ca410.ZERO_CALIBRATION_TIMEOUT,
+            "MES,2": konica_minolta_ca410.MEASURE_TIMEOUT,
+        }
+
+    def test_measure_timeout_covers_slowest_jeita_measurement(self):
+        # Timeout Duration, p. 9: (1 / 0.07 Hz x 5 + 0.6 + 1) x 1 x 1 + 1.5 s
+        slowest_jeita = (1 / 0.07 * 5 + 0.6 + 1) + 1.5
+
+        assert slowest_jeita == pytest.approx(konica_minolta_ca410.MEASURE_TIMEOUT)
+
+    def test_queries_time_out_quickly(self):
+        assert (
+            konica_minolta_ca410.QUERY_TIMEOUT
+            < konica_minolta_ca410.MEASURE_TIMEOUT / 10
+        )
+
+
 class TestMeasurementStatus:
     def test_decodes_combined_codes(self):
         status = MeasurementStatus(71)

@@ -54,11 +54,106 @@ DELIMITER = b"\r"
 REPLY_CODE = re.compile(r"(OK|ER)[0-9]{2}")
 """Shape of the response code that opens every reply."""
 
-RESPONSE_TIMEOUT = 35
-"""Seconds to wait for a reply.
+COMMUNICATION_TIME = 1.5
+"""Seconds the specification allows for communication in every reply.
 
-The specification's worst case for one color measurement is about 30 seconds,
-under INTERNAL or EXTERNAL synchronization. Zero calibration takes about 10.
+The *Timeout Duration* section of the specification (p. 9) adds this term to
+every measurement timeout.
+"""
+
+LONGEST_SYNCHRONIZED_MEASUREMENT = 4.0
+"""Seconds one color or FMA flicker measurement takes at most.
+
+This is the INTERNAL and EXTERNAL entry of tables A and B (p. 9), and the
+longest MANUAL measurement time the ``SCS`` command accepts (p. 39).
+"""
+
+LOWEST_JEITA_SAMPLING_FREQUENCY = 0.07
+"""Lowest JEITA sampling frequency in hertz that ``JCS`` (p. 51) and ``ACS``
+(p. 53) accept, which gives the longest JEITA measurement."""
+
+
+def _timeout_duration(
+    one_measurement: float,
+    retries_a: int,
+    total_retry_time: float,
+    calculation_time: float,
+    retries_b: int,
+) -> float:
+    """Apply the specification's timeout formula for individual measurements.
+
+    The formula is in the *Timeout Duration* section (p. 9). The driver never
+    averages, so the number of averaged measurements is 1.
+
+    Parameters
+    ----------
+    one_measurement : float
+        Seconds for one measurement.
+    retries_a : int
+        Maximum number of retries A.
+    total_retry_time : float
+        Total retry time in seconds.
+    calculation_time : float
+        Calculation time in seconds.
+    retries_b : int
+        Maximum number of retries B.
+
+    Returns
+    -------
+    float
+        Seconds to wait for the reply.
+    """
+    return (
+        one_measurement * retries_a + total_retry_time + calculation_time
+    ) * retries_b + COMMUNICATION_TIME
+
+
+QUERY_TIMEOUT = COMMUNICATION_TIME
+"""Seconds to wait for the reply to a query such as ``IDO`` or ``STR``.
+
+A query measures nothing, so only the specification's communication time
+(p. 9) applies. A port that is not a CA-410 therefore fails identification
+quickly.
+"""
+
+MEASURE_TIMEOUT = max(
+    _timeout_duration(
+        one_measurement=LONGEST_SYNCHRONIZED_MEASUREMENT,
+        retries_a=1,
+        total_retry_time=0,
+        calculation_time=0.01,
+        retries_b=7,
+    ),
+    _timeout_duration(
+        one_measurement=LONGEST_SYNCHRONIZED_MEASUREMENT,
+        retries_a=7,
+        total_retry_time=0.6,
+        calculation_time=0.01,
+        retries_b=1,
+    ),
+    _timeout_duration(
+        one_measurement=1 / LOWEST_JEITA_SAMPLING_FREQUENCY,
+        retries_a=5,
+        total_retry_time=0.6,
+        calculation_time=1,
+        retries_b=1,
+    ),
+)
+"""Seconds to wait for the reply to ``MES``.
+
+The rows of the timeout table (p. 9) give about 30 seconds for color, 30 for
+FMA flicker and 75 for JEITA flicker at the lowest sampling frequency. A
+simultaneous color and flicker measurement needs the longer of its two
+timeouts (p. 9), and the color result waits for the JEITA measurement to
+finish (``MMS``, p. 45; ``MES``, p. 102). The driver doesn't change the stored
+flicker settings, so it allows the longest row.
+"""
+
+ZERO_CALIBRATION_TIMEOUT = MEASURE_TIMEOUT
+"""Seconds to wait for the reply to ``ZRC``.
+
+The specification gives no duration for zero calibration (p. 75), so the driver
+allows it the measurement worst case. A CA-VP427A takes about 10 seconds.
 """
 
 UNKNOWN_EXPOSURE = -1.0
@@ -99,17 +194,20 @@ class Command(NamedTuple):
     fields: int
     """Number of fields that follow the response code in an ``OK`` reply."""
 
+    timeout: float
+    """Seconds to wait for the reply."""
 
-IDENTIFY = Command("IDO,0,1", fields=6)
+
+IDENTIFY = Command("IDO,0,1", fields=6, timeout=QUERY_TIMEOUT)
 """Read the product, variation, model, firmware, serial and custom numbers."""
 
-GET_ZERO_CALIBRATION_STATUS = Command("STR,23", fields=1)
+GET_ZERO_CALIBRATION_STATUS = Command("STR,23", fields=1, timeout=QUERY_TIMEOUT)
 """Read the zero calibration state."""
 
-ZERO_CALIBRATE = Command("ZRC", fields=0)
+ZERO_CALIBRATE = Command("ZRC", fields=0, timeout=ZERO_CALIBRATION_TIMEOUT)
 """Run zero calibration."""
 
-MEASURE = Command("MES,2", fields=10)
+MEASURE = Command("MES,2", fields=10, timeout=MEASURE_TIMEOUT)
 """Measure, and append absolute X, Y and Z to the reply."""
 
 
@@ -166,7 +264,7 @@ class CA410(Colorimeter):
             "parity": serial.PARITY_EVEN,
             "stopbits": serial.STOPBITS_TWO,
             "rtscts": True,
-            "timeout": RESPONSE_TIMEOUT,
+            "timeout": QUERY_TIMEOUT,
         }
     )
 
@@ -204,7 +302,8 @@ class CA410(Colorimeter):
         ----------
         port : serial.Serial | str
             An open serial port, or the name of the port to open with
-            :attr:`SERIAL_KWARGS`.
+            :attr:`SERIAL_KWARGS`. The driver sets the port timeout before
+            each command.
 
         Raises
         ------
@@ -254,6 +353,7 @@ class CA410(Colorimeter):
             If the reply is missing, malformed, or carries an ``ER`` code.
         """
         self._port.reset_input_buffer()
+        self._port.timeout = cmd.timeout
         self._port.write(cmd.text.encode() + DELIMITER)
         reply = self._port.read_until(DELIMITER)
 
