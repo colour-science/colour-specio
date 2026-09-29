@@ -38,7 +38,10 @@ __all__ = [
     "CA410",
     "UNKNOWN_EXPOSURE",
     "CA410Error",
+    "MeasurementSpeed",
     "MeasurementStatus",
+    "SyncMode",
+    "SyncSetting",
     "ZeroCalibrationStatus",
     "candidate_ports",
 ]
@@ -238,6 +241,18 @@ GET_LUMINANCE_UNIT = Command("STR,6", fields=1, timeout=QUERY_TIMEOUT)
 GET_ZERO_CALIBRATION_STATUS = Command("STR,23", fields=1, timeout=QUERY_TIMEOUT)
 """Read the zero calibration state."""
 
+GET_SYNC_MODE = Command("STR,1", fields=1, timeout=QUERY_TIMEOUT)
+"""Read the synchronization mode."""
+
+GET_MEASUREMENT_SPEED = Command("STR,7", fields=1, timeout=QUERY_TIMEOUT)
+"""Read the measurement speed."""
+
+GET_MANUAL_MEASUREMENT_TIME = Command("STR,17", fields=1, timeout=QUERY_TIMEOUT)
+"""Read the MANUAL mode measurement time in ms."""
+
+GET_INTERNAL_FREQUENCY = Command("STR,28", fields=1, timeout=QUERY_TIMEOUT)
+"""Read the INTERNAL mode sync frequency in Hz."""
+
 ZERO_CALIBRATE = Command("ZRC", fields=0, timeout=ZERO_CALIBRATION_TIMEOUT)
 """Run zero calibration."""
 
@@ -276,6 +291,86 @@ class ZeroCalibrationStatus(IntEnum):
     COMPLETED = 2
 
 
+class MeasurementSpeed(IntEnum):
+    """Measurement speed, set with ``FSC`` (p. 41) and read with ``STR,7``.
+
+    AUTO and LTD.AUTO choose the measurement time from the luminance.
+    """
+
+    SLOW = 0
+    FAST = 1
+    LTD_AUTO = 2
+    AUTO = 3
+
+
+class SyncMode(IntEnum):
+    """Synchronization mode, set with ``SCS`` (p. 39) and read with ``STR,1``."""
+
+    NTSC = 0
+    PAL = 1
+    EXTERNAL = 2
+    UNIVERSAL = 3
+    INTERNAL = 4
+    MANUAL = 5
+
+
+class SyncSetting(NamedTuple):
+    """A synchronization mode and the value it takes (``SCS``, p. 39).
+
+    Only INTERNAL takes a frequency, and only MANUAL takes a measurement time.
+    Leaving the value as None when setting INTERNAL or MANUAL keeps the value
+    the probe has stored.
+    """
+
+    mode: SyncMode
+
+    frequency: float | None = None
+    """Vertical sync frequency in Hz, 0.50 to 240.00, for INTERNAL mode."""
+
+    measurement_time: float | None = None
+    """Measurement time in seconds, 0.004 to 4.0, for MANUAL mode."""
+
+
+MILLISECONDS_PER_SECOND = 1000
+"""Converts the MANUAL measurement time the probe uses, in ms, to seconds."""
+
+
+def _sync_command_text(setting: SyncSetting) -> str:
+    """Build the ``SCS`` command that applies ``setting`` (p. 39).
+
+    The frequency is sent to two decimal places and the measurement time, in
+    ms, to one, which is the precision the probe keeps.
+
+    Parameters
+    ----------
+    setting : SyncSetting
+        The synchronization setting to apply.
+
+    Returns
+    -------
+    str
+        The command without its delimiter, for example ``"SCS,4,60.00"``.
+
+    Raises
+    ------
+    ValueError
+        If the setting gives a frequency to a mode other than INTERNAL, or a
+        measurement time to a mode other than MANUAL.
+    """
+    mode = SyncMode(setting.mode)
+    if setting.frequency is not None and mode is not SyncMode.INTERNAL:
+        raise ValueError(f"SyncMode.{mode.name} takes no frequency")
+    if setting.measurement_time is not None and mode is not SyncMode.MANUAL:
+        raise ValueError(f"SyncMode.{mode.name} takes no measurement time")
+
+    text = f"SCS,{mode.value}"
+    if setting.frequency is not None:
+        text += f",{setting.frequency:.2f}"
+    if setting.measurement_time is not None:
+        text += f",{setting.measurement_time * MILLISECONDS_PER_SECOND:.1f}"
+    return text
+
+
 def candidate_ports() -> list[str]:
     """List serial ports whose USB vendor and product IDs match a CA-410 probe.
 
@@ -303,7 +398,21 @@ class CA410(Colorimeter):
     across power cycles (``LUS``, p. 74), and replies use that unit, so
     connecting reads it (``STR,6``, p. 62) and the driver converts fL replies
     to cd/m².
+
+    The probe also stores its measurement speed and synchronization mode
+    across power cycles, and measures with whatever it has stored. The driver
+    never changes them on its own, so a setting left by an earlier session
+    applies to the next. Set :attr:`measurement_speed` and :attr:`sync` at the
+    start of a measurement set, or read them and record them with it::
+
+        ca = CA410.discover()
+        ca.measurement_speed = CA410.MeasurementSpeed.FAST
+        ca.sync = CA410.SyncSetting(CA410.SyncMode.INTERNAL, frequency=60)
     """
+
+    MeasurementSpeed = MeasurementSpeed
+    SyncMode = SyncMode
+    SyncSetting = SyncSetting
 
     SERIAL_KWARGS: Mapping = MappingProxyType(
         {
@@ -518,6 +627,90 @@ class CA410(Colorimeter):
             If the shutter does not block all light (``ER21``).
         """
         self._write_cmd(ZERO_CALIBRATE)
+
+    @property
+    def measurement_speed(self) -> MeasurementSpeed:
+        """The measurement speed stored in the probe.
+
+        The probe keeps this setting across power cycles (``FSC``, p. 41).
+        Reading it queries the probe. Setting it writes to the probe only
+        when the value differs from the stored one.
+
+        Raises
+        ------
+        CA410Error
+            If the probe reports an undefined speed or rejects the setting.
+        """
+        (value,) = self._write_cmd(GET_MEASUREMENT_SPEED)
+        try:
+            return MeasurementSpeed(int(value))
+        except ValueError as e:
+            raise CA410Error(f"Undefined CA-410 measurement speed {value!r}") from e
+
+    @measurement_speed.setter
+    def measurement_speed(self, speed: MeasurementSpeed) -> None:
+        speed = MeasurementSpeed(speed)
+        if self.measurement_speed is not speed:
+            self._write_cmd(Command(f"FSC,{speed.value}", 0, QUERY_TIMEOUT))
+
+    @property
+    def sync(self) -> SyncSetting:
+        """The synchronization mode stored in the probe, with its value.
+
+        The probe keeps this setting across power cycles (``SCS``, p. 39).
+        Reading it queries the probe: the frequency for INTERNAL mode
+        (``STR,28``) and the measurement time for MANUAL mode (``STR,17``).
+        Setting it writes to the probe only when the setting differs from the
+        stored one. The probe validates the range, which depends on the
+        display and flicker settings (p. 40).
+
+        Raises
+        ------
+        ValueError
+            If the setting gives a frequency to a mode other than INTERNAL, or
+            a measurement time to a mode other than MANUAL.
+        CA410Error
+            If the probe reports an undefined mode or rejects the setting.
+        """
+        (value,) = self._write_cmd(GET_SYNC_MODE)
+        try:
+            mode = SyncMode(int(value))
+        except ValueError as e:
+            raise CA410Error(f"Undefined CA-410 sync mode {value!r}") from e
+
+        if mode is SyncMode.INTERNAL:
+            (frequency,) = self._write_cmd(GET_INTERNAL_FREQUENCY)
+            return SyncSetting(mode, frequency=self._parse_float(frequency))
+        if mode is SyncMode.MANUAL:
+            (time,) = self._write_cmd(GET_MANUAL_MEASUREMENT_TIME)
+            return SyncSetting(
+                mode,
+                measurement_time=self._parse_float(time) / MILLISECONDS_PER_SECOND,
+            )
+        return SyncSetting(mode)
+
+    @sync.setter
+    def sync(self, setting: SyncSetting) -> None:
+        text = _sync_command_text(setting)
+        stored = self.sync
+        keeps_stored_value = text == f"SCS,{stored.mode.value}"
+        if keeps_stored_value or text == _sync_command_text(stored):
+            return
+        self._write_cmd(Command(text, 0, QUERY_TIMEOUT))
+
+    @staticmethod
+    def _parse_float(value: str) -> float:
+        """Parse a numeric reply field.
+
+        Raises
+        ------
+        CA410Error
+            If the field is not a number.
+        """
+        try:
+            return float(value)
+        except ValueError as e:
+            raise CA410Error(f"Non-numeric CA-410 reply field {value!r}") from e
 
     def _raw_measure(self) -> RawColorimeterMeasurement:
         """Measure once and return absolute XYZ in cd/m².

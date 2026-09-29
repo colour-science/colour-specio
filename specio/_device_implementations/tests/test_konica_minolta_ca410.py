@@ -17,7 +17,10 @@ from specio._device_implementations import konica_minolta_ca410
 from specio._device_implementations.konica_minolta_ca410 import (
     CA410,
     CA410Error,
+    MeasurementSpeed,
     MeasurementStatus,
+    SyncMode,
+    SyncSetting,
 )
 from specio.common.exceptions import DeviceError
 from specio.common.utility import SpecioRuntimeWarning
@@ -414,3 +417,120 @@ class TestDiscover:
 
         with pytest.raises(serial.SerialException, match="Couldn't find a CA-410"):
             CA410.discover()
+
+
+class TestMeasurementSpeed:
+    def test_setting_types_are_reachable_from_the_class(self):
+        # specio.colorimeters exports only CA410
+        assert CA410.MeasurementSpeed is MeasurementSpeed
+        assert CA410.SyncMode is SyncMode
+        assert CA410.SyncSetting is SyncSetting
+
+    def test_reads_the_stored_speed(self):
+        ca = CA410(make_port(STR_7=b"OK00,1\r"))
+
+        assert ca.measurement_speed is MeasurementSpeed.FAST
+
+    def test_sets_a_new_speed(self):
+        port = make_port(STR_7=b"OK00,1\r", FSC_3=b"OK00\r")
+        ca = CA410(port)
+
+        ca.measurement_speed = MeasurementSpeed.AUTO
+
+        assert port.commands[-1] == "FSC,3"
+
+    def test_skips_writing_an_unchanged_speed(self):
+        port = make_port(STR_7=b"OK00,1\r")
+        ca = CA410(port)
+
+        ca.measurement_speed = MeasurementSpeed.FAST
+
+        assert not any(c.startswith("FSC") for c in port.commands)
+
+    def test_undefined_speed_raises(self):
+        ca = CA410(make_port(STR_7=b"OK00,7\r"))
+
+        with pytest.raises(CA410Error, match="speed"):
+            _ = ca.measurement_speed
+
+
+class TestSync:
+    def test_reads_internal_with_its_frequency(self):
+        ca = CA410(make_port(STR_1=b"OK00,4\r", STR_28=b"OK00,59.94\r"))
+
+        assert ca.sync == SyncSetting(SyncMode.INTERNAL, frequency=59.94)
+
+    def test_reads_manual_with_its_measurement_time_in_seconds(self):
+        ca = CA410(make_port(STR_1=b"OK00,5\r", STR_17=b"OK00,250.0\r"))
+
+        assert ca.sync == SyncSetting(SyncMode.MANUAL, measurement_time=0.25)
+
+    def test_reads_a_mode_without_a_value(self):
+        port = make_port(STR_1=b"OK00,0\r")
+        ca = CA410(port)
+
+        assert ca.sync == SyncSetting(SyncMode.NTSC)
+        assert port.commands[-1] == "STR,1"
+
+    @pytest.mark.parametrize(
+        ("setting", "command"),
+        [
+            (SyncSetting(SyncMode.INTERNAL, frequency=60), "SCS,4,60.00"),
+            (SyncSetting(SyncMode.MANUAL, measurement_time=0.25), "SCS,5,250.0"),
+            (SyncSetting(SyncMode.UNIVERSAL), "SCS,3"),
+            # Omitting the value keeps the stored one (SCS, p. 39)
+            (SyncSetting(SyncMode.INTERNAL), "SCS,4"),
+        ],
+    )
+    def test_sets_a_new_setting(self, setting: SyncSetting, command: str):
+        port = make_port(STR_1=b"OK00,0\r", **{command: b"OK00\r"})
+        ca = CA410(port)
+
+        ca.sync = setting
+
+        assert port.commands[-1] == command
+
+    @pytest.mark.parametrize(
+        "setting",
+        [
+            SyncSetting(SyncMode.INTERNAL, frequency=59.94),
+            SyncSetting(SyncMode.INTERNAL),
+        ],
+    )
+    def test_skips_writing_an_unchanged_setting(self, setting: SyncSetting):
+        port = make_port(STR_1=b"OK00,4\r", STR_28=b"OK00,59.94\r")
+        ca = CA410(port)
+
+        ca.sync = setting
+
+        assert not any(c.startswith("SCS") for c in port.commands)
+
+    @pytest.mark.parametrize(
+        "setting",
+        [
+            SyncSetting(SyncMode.NTSC, frequency=60),
+            SyncSetting(SyncMode.INTERNAL, measurement_time=0.1),
+            SyncSetting(SyncMode.MANUAL, frequency=60),
+        ],
+    )
+    def test_rejects_a_value_the_mode_does_not_take(self, setting: SyncSetting):
+        port = make_port(STR_1=b"OK00,0\r")
+        ca = CA410(port)
+
+        with pytest.raises(ValueError, match="SyncMode"):
+            ca.sync = setting
+        assert not any(c.startswith("SCS") for c in port.commands)
+
+    def test_probe_rejects_an_out_of_range_value(self):
+        port = make_port(STR_1=b"OK00,0\r", **{"SCS,4,300.00": b"ER10\r"})
+        ca = CA410(port)
+
+        with pytest.raises(CA410Error) as e:
+            ca.sync = SyncSetting(SyncMode.INTERNAL, frequency=300)
+        assert e.value.code == "ER10"
+
+    def test_undefined_mode_raises(self):
+        ca = CA410(make_port(STR_1=b"OK00,9\r"))
+
+        with pytest.raises(CA410Error, match="sync"):
+            _ = ca.sync
