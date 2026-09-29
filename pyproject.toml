@@ -6,7 +6,7 @@ authors = [{ name = "Tucker Downs", email = "tucker@tjdcs.dev" }]
 maintainers = [{ name = "Tucker Downs", email = "tucker@tjdcs.dev" }]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.12,<3.15"
+requires-python = ">=3.13,<3.15"
 keywords = [
     "colour-science",
     "spectrometer",
@@ -83,7 +83,7 @@ extras = ["matplotlib>=3.7.0", "ipykernel>=6.25.0", "pandas>=2.0.0"]
 
 [tool.ruff]
 line-length = 88
-target-version = "py314"
+target-version = "py313"
 exclude = ["*_pb2.py", "*_pb2.pyi"]
 
 [tool.ruff.lint]
@@ -130,7 +130,7 @@ include = ["examples", "tests", "specio"]
 exclude = ["**/__pycache__", "**/*_pb2.py", "**/*_pb2.pyi"]
 venvPath = "."
 venv = ".venv"
-pythonVersion = "3.14"
+pythonVersion = "3.13"
 typeCheckingMode = "standard"
 reportMissingImports = true
 reportMissingTypeStubs = false

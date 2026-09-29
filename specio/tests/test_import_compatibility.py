@@ -1,16 +1,11 @@
 """Every module imports on the oldest Python this package supports.
 
-Python 3.14 evaluates annotations lazily (PEP 649), so a module whose
-annotations name something unavailable at definition time -- a
-TYPE_CHECKING-only import, or a class referring to itself from inside its
-own body -- imports there and raises NameError on 3.12 and 3.13.
-`pyproject.toml` declares support for both.
-
-A development environment on 3.14 cannot catch this by running, which is
-how it got in: imports moved under TYPE_CHECKING and two self-referential
-return annotations lost their quotes, and every module kept importing
-locally while the package became unusable on the versions it claims. The
-checks below are static, so they hold whatever interpreter runs them.
+Python 3.14 evaluates annotations lazily (PEP 649), while 3.13 evaluates
+them when a function or class is defined. A module whose annotations name
+something unbound at definition time, such as a TYPE_CHECKING-only import
+or a class referring to itself from inside its own body, therefore imports
+on 3.14 and raises NameError on 3.13. These checks are static, so they
+catch that whichever interpreter runs them.
 """
 
 from __future__ import annotations
@@ -29,12 +24,22 @@ FUTURE_IMPORT = "from __future__ import annotations"
 FUNCTION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef)
 
 
+def _defers_annotations(tree: ast.Module) -> bool:
+    """Whether the module imports `annotations` from `__future__`."""
+    return any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "__future__"
+        and any(alias.name == "annotations" for alias in node.names)
+        for node in tree.body
+    )
+
+
 def _modules_without_future_import() -> Iterator[tuple[pathlib.Path, ast.Module]]:
     """Every module that has not deferred its annotations."""
     for path in sorted(PACKAGE_ROOT.rglob("*.py")):
-        source = path.read_text()
-        if FUTURE_IMPORT not in source:
-            yield path.relative_to(PACKAGE_ROOT), ast.parse(source)
+        tree = ast.parse(path.read_text())
+        if not _defers_annotations(tree):
+            yield path.relative_to(PACKAGE_ROOT), tree
 
 
 def _is_type_checking(node: ast.AST) -> bool:
