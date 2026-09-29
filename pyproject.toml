@@ -33,13 +33,13 @@ classifiers = [
 ]
 dependencies = [
     "colour-science>=0.4.7",
-    "numpy>=2.4.2",
+    "numpy>=2.3.2",
     "pyserial>=3.5",
-    "protobuf>=6.33.5",
+    "protobuf>=6.30.2",
     "bidict>=0.23.1",
     "aenum>=3.1.16",
     "xxhash>=3.6.0",
-    "scipy>=1.15.0",
+    "scipy>=1.16.1",
 ]
 
 [project.urls]
@@ -73,7 +73,7 @@ exclude = [
 dev = [
     "invoke>=2.2.1",
     "pre-commit>=4.5.1",
-    "protoc-wheel-0>=30.2",
+    "protoc-wheel-0==30.2",
     "pyright>=1.1.408",
     "pytest>=9.0.2",
     "pytest-xdist>=3.8.0",

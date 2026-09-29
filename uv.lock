@@ -126,10 +126,10 @@ requires-dist = [
     { name = "aenum", specifier = ">=3.1.16" },
     { name = "bidict", specifier = ">=0.23.1" },
     { name = "colour-science", specifier = ">=0.4.7" },
-    { name = "numpy", specifier = ">=2.4.2" },
-    { name = "protobuf", specifier = ">=6.33.5" },
+    { name = "numpy", specifier = ">=2.3.2" },
+    { name = "protobuf", specifier = ">=6.30.2" },
     { name = "pyserial", specifier = ">=3.5" },
-    { name = "scipy", specifier = ">=1.15.0" },
+    { name = "scipy", specifier = ">=1.16.1" },
     { name = "xxhash", specifier = ">=3.6.0" },
 ]
 
@@ -137,7 +137,7 @@ requires-dist = [
 dev = [
     { name = "invoke", specifier = ">=2.2.1" },
     { name = "pre-commit", specifier = ">=4.5.1" },
-    { name = "protoc-wheel-0", specifier = ">=30.2" },
+    { name = "protoc-wheel-0", specifier = "==30.2" },
     { name = "pyright", specifier = ">=1.1.408" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
