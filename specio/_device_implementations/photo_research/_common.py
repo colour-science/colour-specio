@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import platform
+import re
 import textwrap
 import time
 from abc import ABC, abstractmethod
@@ -17,6 +18,8 @@ from typing import TYPE_CHECKING, Any, Self
 
 import serial
 import serial.tools.list_ports
+
+from specio.common.exceptions import DeviceError
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -32,6 +35,7 @@ _COMMAND_DELAY = 0.05
 _CHAR_WRITE_DELAY = 0.01
 _DEFAULT_SERIAL_TIMEOUT = 5.0
 _REMOTE_MODE_TIMEOUT = 10.0
+_CODE_PATTERN = re.compile(r"[+-]?\d+")
 _PR_SERIAL_KWARGS: Mapping = MappingProxyType(
     {
         "baudrate": 9600,
@@ -45,17 +49,52 @@ _PR_SERIAL_KWARGS: Mapping = MappingProxyType(
 
 class PRResponseCode(int, Enum):
     """
-    Response codes for Photo Research SpectraScan devices.
+    Error codes returned by Photo Research PR-655 and PR-670 devices.
 
-    The device returns a 5-digit status string (e.g., "00000"). The first
-    two digits represent the primary error code. Code 0 indicates success.
+    Every reply starts with a signed code, ``00000`` on success. Any other
+    value is an error. The values and meanings follow the "Remote Control
+    Error Codes" tables of the PR-655/670 User Manual. The manual marks none
+    of them as warnings. A code outside the tables becomes an ``UNKNOWN_<n>``
+    member that keeps its value.
     """
 
     OK = 0
-    INSUFFICIENT_LIGHT = 1
-    SYNC_ERROR = 3
-    OVER_RANGE = 5
-    COMMAND_ERROR = 8
+
+    # Measurement errors
+    LIGHT_SOURCE_NOT_CONSTANT = -1
+    LIGHT_OVERLOAD = -2
+    CANNOT_SYNC = -3
+    ADAPTIVE_MODE_ERROR = -4
+    WEAK_LIGHT = -8
+    SYNC_ERROR = -9
+    CANNOT_AUTO_SYNC = -10
+    ADAPTIVE_MODE_TIMEOUT = -12
+
+    # Parsing errors
+    ILLEGAL_COMMAND = -1000
+    TOO_MANY_FIELDS = -1001
+    INVALID_PRIMARY_ACCESSORY = -1002
+    INVALID_ADDON_1_ACCESSORY = -1003
+    INVALID_ADDON_2_ACCESSORY = -1004
+    NOT_A_PRIMARY_ACCESSORY = -1005
+    NOT_AN_ADDON_ACCESSORY = -1006
+    ACCESSORY_ALREADY_SELECTED = -1007
+    INVALID_APERTURE_INDEX = -1008
+    INVALID_UNITS_CODE = -1009
+    INVALID_EXPOSURE_VALUE = -1010
+    INVALID_GAIN_CODE = -1011
+    INVALID_AVERAGE_CYCLES = -1012
+    INVALID_CIE_OBSERVER = -1015
+    INVALID_DARK_MODE = -1017
+    INVALID_SYNC_MODE = -1019
+    TITLE_TOO_LONG = -1021
+    TITLE_EMPTY = -1022
+    INVALID_USER_SYNC_PERIOD = -1023
+    INVALID_RECALL_COMMAND = -1024
+    INVALID_ADDON_3_ACCESSORY = -1025
+    INVALID_SENSITIVITY_MODE = -1026
+    PARAMETER_NOT_APPLICABLE = -1035
+    INVALID_DATA_REQUEST = -2000
 
     @classmethod
     def _missing_(cls, value: object) -> PRResponseCode:
@@ -86,13 +125,24 @@ class PRCommandResponse:
     raw_data: str
 
 
-class PRCommandError(Exception):
-    """Describes an error from a Photo Research device command."""
+class PRCommandError(DeviceError):
+    """Describes an error code returned by a Photo Research device command."""
 
     def __init__(self, response: PRCommandResponse, *args: object) -> None:
+        """
+        Initialize the error from the parsed device response.
+
+        Parameters
+        ----------
+        response : PRCommandResponse
+            The response that carried the error code.
+        *args : object
+            Additional context passed to ``Exception``.
+        """
         self.response = response
         super().__init__(
-            f"PR command error: code={response.code}, data={response.raw_data!r}",
+            f"PR command error: {response.code.name} ({response.code.value}), "
+            f"data={response.raw_data!r}",
             *args,
         )
 
@@ -168,13 +218,7 @@ class PRDeviceBase(ABC):
         response = self._read_response(timeout=_REMOTE_MODE_TIMEOUT)
 
         if "REMOTE MODE" not in response:
-            raise PRCommandError(
-                PRCommandResponse(
-                    code=PRResponseCode.COMMAND_ERROR,
-                    raw_data=response,
-                ),
-                f"Unexpected handshake response: {response!r}",
-            )
+            raise DeviceError(f"Unexpected handshake response: {response!r}")
 
         log.debug("Remote mode entered successfully")
 
@@ -263,9 +307,9 @@ class PRDeviceBase(ABC):
         """
         Parse a raw response string into a structured command response.
 
-        The PR-655 response format is a 5-digit status code followed by
-        a comma and the data payload (e.g., "00000,PR-655"). The first
-        two digits of the status code are the primary error code.
+        A response is a signed error code, then optionally a comma and the
+        data payload (e.g., ``"00000,PR-655"`` or ``"-1000"``). The whole
+        code field is the error code.
 
         Parameters
         ----------
@@ -276,14 +320,20 @@ class PRDeviceBase(ABC):
         -------
         PRCommandResponse
             Structured response with parsed status code and data.
-        """
-        stripped = raw.strip()
-        if len(stripped) >= 5 and stripped[:5].isdigit():
-            code = PRResponseCode(int(stripped[:2]))
-            data = stripped[5:].lstrip(",").strip()
-            return PRCommandResponse(code=code, raw_data=data)
 
-        return PRCommandResponse(code=PRResponseCode.OK, raw_data=stripped)
+        Raises
+        ------
+        DeviceError
+            If the response is empty or does not start with a numeric code.
+        """
+        code_field, _, data = raw.strip().partition(",")
+        code_field = code_field.strip()
+        if not _CODE_PATTERN.fullmatch(code_field):
+            raise DeviceError(f"Malformed Photo Research response: {raw!r}")
+
+        return PRCommandResponse(
+            code=PRResponseCode(int(code_field)), raw_data=data.strip()
+        )
 
     @classmethod
     def discover(cls) -> Self:
