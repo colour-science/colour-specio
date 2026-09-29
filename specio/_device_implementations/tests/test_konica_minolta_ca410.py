@@ -206,6 +206,15 @@ class TestMeasure:
         np.testing.assert_allclose(m.xy, [0.3083380, 0.3401959], atol=1e-6)
         assert m.device_id == "CA-410 CA-VP427A - 80005086"
 
+    def test_averages_repetitions(self):
+        port = make_port(MES_2=[patch_reply(1), patch_reply(3)])
+        ca = CA410(port)
+
+        m = ca.measure(repetitions=2)
+
+        np.testing.assert_allclose(m.XYZ, [2, 2, 2])
+        assert port.commands.count("MES,2") == 2
+
     def test_exposure_is_unknown(self):
         ca = CA410(make_port())
 
