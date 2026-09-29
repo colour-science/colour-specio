@@ -2,6 +2,7 @@
 """
 CSMF Doctor fixes some broken CSMF files by recalculating derived attributes.
 """
+
 import argparse
 import textwrap
 from pathlib import Path
@@ -14,7 +15,7 @@ def main():
         prog="CSMF Doctor",
         description=textwrap.dedent(
             """Read CSMF files and recompute derived data. Output to the same files.
-            If a directory is given, all CSMF files will be procesed.
+            If a directory is given, all CSMF files will be processed.
             """
         ),
     )

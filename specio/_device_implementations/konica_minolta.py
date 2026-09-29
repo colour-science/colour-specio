@@ -11,15 +11,39 @@ from enum import Enum
 from functools import cached_property
 from textwrap import dedent
 from types import MappingProxyType
-from typing import Any, NamedTuple, cast, final
+from typing import TYPE_CHECKING, Any, NamedTuple, cast, final
 
 import aenum
 import serial
 from colour import SpectralDistribution, SpectralShape
 from serial.tools import list_ports
-from serial.tools.list_ports_common import ListPortInfo
+
+if TYPE_CHECKING:
+    from serial.tools.list_ports_common import ListPortInfo
 
 from specio.common import RawSPDMeasurement, SpecRadiometer
+
+__version__ = "0.4.1.post0"
+__author__ = "Tucker Downs"
+__copyright__ = "Copyright 2022 Specio Developers"
+__license__ = "BSD-3-Clause"
+__maintainer__ = "Tucker Downs"
+__email__ = "tucker@tjdcs.dev"
+__status__ = "Development"
+
+__all__ = [
+    "CS2000",
+    "DEFAULT_SPEED_MODE_SETTING",
+    "HIGH_ACCURACY_MODE_SETTING",
+    "CommandResponse",
+    "InternalNDMode",
+    "ResponseCode",
+    "SpeedMode",
+    "SpeedModeSetting",
+    "SyncMode",
+    "SyncSpeedSetting",
+    "WriteCommandError",
+]
 
 
 class ResponseCode(aenum.MultiValueEnum):
@@ -41,8 +65,8 @@ class ResponseCode(aenum.MultiValueEnum):
         "The command parameters could not be interpreted",
     )
 
-    TEMPURTURE_ABNORMALITY_0 = b"ER51", "Device temperature abnormal. "
-    TEMPURTURE_ABNORMALITY_1 = b"ER52", "Device temperature abnormal."
+    TEMPERATURE_ABNORMALITY_0 = b"ER51", "Device temperature abnormal. "
+    TEMPERATURE_ABNORMALITY_1 = b"ER52", "Device temperature abnormal."
 
     SYNC_ERROR = b"ER71", "Could not synchronize to light source flicker"
     TARGET_ABNORMALITY = b"ER83", "Measurement Area Abnormality"
@@ -130,7 +154,7 @@ class SpeedModeSetting:
                     f"""SpeedMode.{mode.name} requires integration_time time
                     to be between 2 and 16 integer seconds."""
                 )
-            self.time: int = int(round(integration_time))
+            self.time: int = round(integration_time)
 
         elif mode is SpeedMode.MANUAL:
             if (
@@ -142,7 +166,7 @@ class SpeedModeSetting:
                     f"""SpeedMode.{mode.name} requires manual_integration time
                     to be between .005 and 120 seconds."""
                 )
-            self.time = int(round(integration_time * 1e6))
+            self.time = round(integration_time * 1e6)
 
     def __bytes__(self):
         cmd_bytes = bytearray(self.mode + b",")
@@ -198,7 +222,7 @@ class CS2000(SpecRadiometer):
             )
 
         for p in possible_ports:
-            p = cast(ListPortInfo, p)  # Typing for `Serial` is wrong
+            p = cast("ListPortInfo", p)  # Typing for `Serial` is wrong
 
             sp = serial.Serial(p.device, **cls.CS2000_SERIAL_KWARGS)
             sp.read_all()
@@ -360,7 +384,7 @@ class CS2000(SpecRadiometer):
 
     @speedmode.setter
     def speedmode(self, cr: SpeedModeSetting):
-        code, _ = self._write_cmd(b"SPMS," + bytes(cr))
+        _, _ = self._write_cmd(b"SPMS," + bytes(cr))
 
     def _raw_measure(self) -> RawSPDMeasurement:
         # Additional timeout recommended by KM manual
@@ -378,7 +402,7 @@ class CS2000(SpecRadiometer):
                     time.sleep(0.5)
                     continue
                 else:
-                    raise e  # noqa: TRY201 Transparently re-raise original exception
+                    raise e
 
         _, spd0 = self._write_cmd("MEDR,1,1,1")
         _, spd1 = self._write_cmd("MEDR,1,1,2")

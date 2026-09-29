@@ -2,33 +2,36 @@
 Define basic spectrometer interfaces
 """
 
-import textwrap
 from abc import ABC, abstractmethod
-from ctypes import ArgumentError
 from dataclasses import dataclass
-from datetime import datetime
 from functools import cached_property
-from typing import Any, Self, final
+from typing import Any, Self
 
 import numpy as np
-from colour import SpectralDistribution, SpragueInterpolator, sd_multi_leds
-from colour.colorimetry.dominant import (
-    colorimetric_purity,
-    dominant_wavelength,
-)
+from colour import SpectralDistribution
 from colour.colorimetry.tristimulus_values import sd_to_XYZ
 from colour.models.cie_ucs import xy_to_UCS_uv
-from colour.models.cie_xyy import XYZ_to_xy
 from colour.temperature import uv_to_CCT
 
+from ._measurements_shared import (
+    BaseMeasurement,
+    compute_color_properties,
+    validate_repetitions,
+)
+
+__version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
-__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+__license__ = "BSD-3-Clause"
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
-__all__ = []
+__all__ = [
+    "RawSPDMeasurement",
+    "SPDMeasurement",
+    "SpecRadiometer",
+]
 
 
 @dataclass
@@ -44,7 +47,7 @@ class RawSPDMeasurement:
     anc_data: Any = None
 
 
-class SPDMeasurement:
+class SPDMeasurement(BaseMeasurement):
     """
     The basic measurement structure for specio. It contains
     `colour.SpectralDistribution` and several convenience calculations. It an
@@ -53,6 +56,19 @@ class SPDMeasurement:
 
     @classmethod
     def FromRaw(cls, raw: RawSPDMeasurement) -> Self:
+        """
+        Create an SPDMeasurement from raw spectrometer measurement data.
+
+        Parameters
+        ----------
+        raw : RawSPDMeasurement
+            Raw measurement data containing spectral power distribution and metadata.
+
+        Returns
+        -------
+        SPDMeasurement
+            Processed measurement with calculated color properties.
+        """
         return cls(
             spd=raw.spd,
             exposure=raw.exposure,
@@ -68,6 +84,23 @@ class SPDMeasurement:
         ancillary: Any = None,
         no_compute: bool = False,
     ):
+        """
+        Initialize spectral measurement with computed color properties.
+
+        Parameters
+        ----------
+        spd : SpectralDistribution
+            Spectral power distribution data from the measurement.
+        exposure : float
+            Exposure time or integration time used for the measurement.
+        spectrometer_id : str
+            Unique identifier for the measuring spectrometer.
+        ancillary : Any, optional
+            Additional metadata or ancillary data from the measurement.
+        no_compute : bool, optional
+            If True, skip calculation of derived color properties (XYZ, CCT, etc.).
+            Default is False.
+        """
         self.spd = spd
         self.exposure = exposure
         self.spectrometer_id = spectrometer_id
@@ -79,14 +112,19 @@ class SPDMeasurement:
 
         if not no_compute:
             self.XYZ = sd_to_XYZ(self.spd, k=683, method=method)
-            self.xy = XYZ_to_xy(self.XYZ)
+
+            # Use shared color property computation
+            color_props = compute_color_properties(self.XYZ)
+            self.xy = color_props["xy"]
+            self.dominant_wl: float = color_props["dominant_wl"]
+            self.purity: float = color_props["purity"]
+            self.time = color_props["time"]
+
             _cct = uv_to_CCT(xy_to_UCS_uv(self.xy))
             self.cct: float = _cct[0]
             self.duv: float = _cct[1]
-            self.dominant_wl = float(dominant_wavelength(self.xy, [1 / 3, 1 / 3])[0])
-            self.purity: float = colorimetric_purity(self.xy, (1 / 3, 1 / 3))  # type: ignore
+
             self.power: float = np.asarray(self.spd.values).sum()
-            self.time = datetime.now().astimezone()
 
     def __str__(self) -> str:
         """
@@ -96,16 +134,9 @@ class SPDMeasurement:
         -------
         str
         """
-        return textwrap.dedent(
-            f"""
-            Spectral Measurement - {self.spectrometer_id}:
-                time: {self.time}
-                XYZ: {np.array2string(self.XYZ, formatter={'float_kind':lambda x: f"{x:.4f}"})}
-                xy: {np.array2string(self.xy, formatter={'float_kind':lambda x: f"{x:.4f}"})}
-                CCT: {self.cct:.0f} ± {self.duv:.5f}
-                Dominant WL: {self.dominant_wl:.1f} @ {self.purity * 100:.1f}%
-                Exposure: {self.exposure:.3f}
-            """  # noqa: E501
+        additional_lines = [f"    Power: {self.power:.2f}"]
+        return self._format_measurement_string(
+            "Spectral", self.spectrometer_id, additional_lines
         )
 
     def __repr__(self) -> str:
@@ -117,26 +148,18 @@ class SPDMeasurement:
         str
         """
 
-        return f"Spectral Measurement - {self.spectrometer_id}, Time: {self.time}, XYZ = {self.XYZ}"  # noqa: E501
+        return f"Spectral Measurement - {self.spectrometer_id}, Time: {self.time}, XYZ = {self.XYZ}"
 
-    def __eq__(self, other: object) -> bool:
-        """Check equality to another `specio.spectrometers.common.Measurement.` Based on
-        multiple subfields.
-
-        True if "exposure", "spectrometer_id", "XYZ", "xy", "dominant_wl",
-        "power", "time", "cct", "duv" are all equal.
-
-        Parameters
-        ----------
-        other : Measurement
-            The object to compare to
+    def _get_comparison_keys(self) -> list[str]:
+        """
+        Get list of attribute names to use for equality comparison.
 
         Returns
         -------
-        bool
+        list[str]
+            List of attribute names for comparison.
         """
-
-        keys = [
+        return [
             "spd",
             "exposure",
             "spectrometer_id",
@@ -149,8 +172,6 @@ class SPDMeasurement:
             "cct",
             "duv",
         ]
-        data = [getattr(self, k) == getattr(other, k) for k in keys]
-        return all(np.all(d) for d in data)
 
 
 class SpecRadiometer(ABC):
@@ -230,11 +251,10 @@ class SpecRadiometer(ABC):
             colour-science and the raw SPD.
         """
 
-        if repetitions < 1:
-            ArgumentError("Repetitions must be greater than 1")
+        validate_repetitions(repetitions)
 
         _rm: list[RawSPDMeasurement] = []
-        for i in range(repetitions):
+        for _ in range(repetitions):
             _rm += [self._raw_measure()]
 
         if len(_rm) == 1:
@@ -248,70 +268,3 @@ class SpecRadiometer(ABC):
         return SPDMeasurement.FromRaw(
             RawSPDMeasurement(spd=spd, exposure=exposure, spectrometer_id=id)
         )
-
-
-@final
-class VirtualSpectrometer(SpecRadiometer):
-    """
-    Basic spectroradiometer interface. Implements a virtual spectrometer
-    returning random colors for basic testing
-    """
-
-    def __init__(self):
-        super().__init__()
-
-    @property
-    def manufacturer(self) -> str:
-        """Return "specio" as the manufacturer of this virtual spectrometer
-
-        Returns
-        -------
-        str
-        """
-        return "specio"
-
-    @cached_property
-    def model(self):
-        """The model name or model signature from the spectrometer.
-
-        Returns
-        -------
-        str
-        """
-        return "Virtual Random Spectrometer"
-
-    @property
-    def serial_number(self):
-        """The serial number of the spectrometer
-
-        Returns
-        -------
-        str
-        """
-        return "0000-0000"
-
-    def _raw_measure(self) -> RawSPDMeasurement:
-        """Return a random SPD generated by combining three gaussian spectra
-
-        Returns
-        -------
-        RawMeasurement
-            A simple dataclass with the required parameters to produce fully
-            defined :class:`specio.spectrometers.common.Measurement`
-        """
-        peaks = np.random.randint([460, 510, 600], [480, 570, 690], 3)
-        widths = np.random.randint(40, 80, 3)
-        powers = np.random.randint(10, 40, 3) / 1000
-        spd = sd_multi_leds(
-            peak_wavelengths=peaks,
-            half_spectral_widths=widths / 2,
-            peak_power_ratios=powers,
-        )
-        spd.interpolator = SpragueInterpolator
-
-        _measurement = RawSPDMeasurement(
-            spd=spd,
-            exposure=1,
-            spectrometer_id="Virtual Spectrometer",
-        )
-        return _measurement

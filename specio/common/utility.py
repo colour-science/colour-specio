@@ -1,11 +1,27 @@
+"""
+Utility functions and classes for specio.
+"""
+
 import re
 from typing import Any
 
 from colour.utilities import warning
 
+from .exceptions import SuspiciousFileOperationError
 
-class SuspiciousFileOperationError(Exception):
-    """Generated when a user does something suspicious with file names"""
+__version__ = "0.4.1.post0"
+__author__ = "Tucker Downs"
+__copyright__ = "Copyright 2022 Specio Developers"
+__license__ = "BSD-3-Clause"
+__maintainer__ = "Tucker Downs"
+__email__ = "tucker@tjdcs.dev"
+__status__ = "Development"
+
+__all__ = [
+    "SpecioRuntimeWarning",
+    "get_valid_filename",
+    "specio_warning",
+]
 
 
 def get_valid_filename(name: str) -> str:

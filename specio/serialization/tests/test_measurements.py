@@ -1,4 +1,7 @@
-from specio.common import VirtualColorimeter, VirtualSpectrometer
+from specio._device_implementations.virtual import (
+    VirtualColorimeter,
+    VirtualSpectrometer,
+)
 from specio.serialization.measurements import (
     colorimeter_measurement_from_bytes,
     colorimeter_measurement_to_bytes,

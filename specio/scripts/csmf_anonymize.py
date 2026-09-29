@@ -12,20 +12,21 @@ from specio.serialization.csmf import (
 )
 
 
-def main(*args):
+def main(*args: str) -> Path:
     parser = argparse.ArgumentParser()
     parser.add_argument("file", help="The csmf file to strip data from")
 
     parser.add_argument("-o", "--out-dir", help="Output directory", default=None)
 
-    if args == ():
-        args = None
-    args = parser.parse_args(args)
+    parsed_args = None if args == () else args
+    parsed_args = parser.parse_args(parsed_args)
 
-    file_path = Path(args.file)
+    file_path = Path(parsed_args.file)
     file_data = load_csmf_file(file_path)
 
-    output_path = file_path.parent if args.out_dir is None else Path(args.out_dir)
+    output_path = (
+        file_path.parent if parsed_args.out_dir is None else Path(parsed_args.out_dir)
+    )
 
     file_data.metadata = CSMF_Metadata(software="specio:csmf_anonymize")
 
@@ -42,7 +43,7 @@ def main(*args):
     )
 
     save_csmf_file(file=str(output_path), ml=ml)
-    if args is None:
+    if args == ():
         output_path = output_path.relative_to(os.getcwd())
         sys.stdout.writelines(f"{output_path!s}")
     return output_path
