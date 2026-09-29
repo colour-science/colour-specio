@@ -4,7 +4,7 @@ Test the Konica Minolta CA-410 driver against an in-memory serial port.
 The scripted replies are captured from a CA-VP427A probe connected over USB.
 """
 
-# cspell:ignore comports
+# cspell:ignore comports footlamberts
 
 from collections.abc import Mapping
 from types import SimpleNamespace
@@ -85,6 +85,7 @@ def make_port(**overrides: bytes | list[bytes]) -> StreamPort:
     """Build a port for a zero-calibrated probe, with optional reply overrides."""
     replies: dict[str, bytes | list[bytes]] = {
         "IDO,0,1": IDENTITY_REPLY,
+        "STR,6": b"OK00,1\r",
         "STR,23": b"OK00,2\r",
         "ZRC": b"OK00\r",
         "MES,2": MEASURE_REPLY,
@@ -218,6 +219,12 @@ class TestMeasure:
 
         assert port.commands[-1] == "MES,2"
 
+    def test_converts_footlamberts_to_candelas_per_square_metre(self):
+        # NIST SP 811, Appendix B.9: 1 fL = 3.426 259 cd/m^2
+        ca = CA410(make_port(STR_6=b"OK00,0\r", MES_2=patch_reply(1)))
+
+        np.testing.assert_allclose(ca.measure().XYZ, [3.426259] * 3, rtol=1e-6)
+
     def test_status_code_warns_and_returns(self):
         reply = MEASURE_REPLY.replace(b"OK00", b"OK06")
         ca = CA410(make_port(MES_2=reply))
@@ -271,6 +278,7 @@ class TestReplyFraming:
             pytest.param(
                 {"MES_2": MEASURE_REPLY.replace(b"P1", b"P\xb1")}, id="non-ASCII"
             ),
+            pytest.param({"STR_6": b"OK00,2\r"}, id="undefined luminance unit"),
             pytest.param({"STR_23": b"OK00,3\r"}, id="undefined zero status"),
             pytest.param({"STR_23": b"OK00,\r"}, id="empty zero status"),
             pytest.param({"STR_23": b"OK00\r"}, id="zero status missing"),
@@ -290,6 +298,7 @@ class TestTimeouts:
 
         assert port.read_timeouts == {
             "IDO,0,1": konica_minolta_ca410.QUERY_TIMEOUT,
+            "STR,6": konica_minolta_ca410.QUERY_TIMEOUT,
             "STR,23": konica_minolta_ca410.QUERY_TIMEOUT,
             "ZRC": konica_minolta_ca410.ZERO_CALIBRATION_TIMEOUT,
             "MES,2": konica_minolta_ca410.MEASURE_TIMEOUT,

@@ -7,8 +7,9 @@ the ASCII protocol in the *CA-410 Communication Specifications* published by
 Konica Minolta.
 """
 
-# cspell:ignore comports SEVENBITS STOPBITS
+# cspell:ignore comports SEVENBITS STOPBITS footlambert
 
+import math
 import re
 from collections.abc import Mapping
 from enum import IntEnum, IntFlag
@@ -159,6 +160,24 @@ The specification gives no duration for zero calibration (p. 75), so the driver
 allows it the measurement worst case. A CA-VP427A takes about 10 seconds.
 """
 
+FOOT = 0.3048
+"""Metres in one international foot (NIST SP 811, Appendix B.8)."""
+
+CANDELAS_PER_SQUARE_METRE_PER_FOOTLAMBERT = 1 / (math.pi * FOOT**2)
+"""Candelas per square metre in one footlambert.
+
+A footlambert is 1/π candela per square foot, about 3.426 cd/m². NIST SP 811,
+Appendix B.8, lists the factor as 3.426 259.
+"""
+
+LUMINANCE_SCALE: Mapping[str, float] = MappingProxyType(
+    {"0": CANDELAS_PER_SQUARE_METRE_PER_FOOTLAMBERT, "1": 1.0}
+)
+"""Factor that converts a reply in each ``STR,6`` luminance unit to cd/m².
+
+``STR,6`` returns 0 for fL and 1 for cd/m² (p. 62).
+"""
+
 UNKNOWN_EXPOSURE = -1.0
 """Exposure recorded for every measurement, because the CA-410 does not report
 its integration time."""
@@ -207,6 +226,9 @@ class Command(NamedTuple):
 
 IDENTIFY = Command("IDO,0,1", fields=6, timeout=QUERY_TIMEOUT)
 """Read the product, variation, model, firmware, serial and custom numbers."""
+
+GET_LUMINANCE_UNIT = Command("STR,6", fields=1, timeout=QUERY_TIMEOUT)
+"""Read the luminance unit that replies use."""
 
 GET_ZERO_CALIBRATION_STATUS = Command("STR,23", fields=1, timeout=QUERY_TIMEOUT)
 """Read the zero calibration state."""
@@ -262,6 +284,11 @@ class CA410(Colorimeter):
     Connecting reads the probe identity. If the probe has not been zero
     calibrated since power-on, connecting also runs zero calibration, because
     the probe rejects measurements until it has one.
+
+    Measurements are always in cd/m². The probe stores its luminance unit
+    across power cycles (``LUS``, p. 74), and replies use that unit, so
+    connecting reads it (``STR,6``, p. 62) and the driver converts fL replies
+    to cd/m².
     """
 
     SERIAL_KWARGS: Mapping = MappingProxyType(
@@ -346,13 +373,13 @@ class CA410(Colorimeter):
             raise
 
     def _connect(self) -> None:
-        """Identify the probe and make sure it is zero calibrated.
+        """Identify the probe, read its luminance unit, and zero calibrate it.
 
         Raises
         ------
         CA410Error
-            If the device does not identify itself as a CA-410, or zero
-            calibration fails.
+            If the device does not identify itself as a CA-410, reports an
+            undefined luminance unit, or zero calibration fails.
         """
         try:
             identity = self._write_cmd(IDENTIFY)
@@ -370,6 +397,12 @@ class CA410(Colorimeter):
         self._probe_model = identity[2].strip()
         self._firmware = identity[3]
         self._serial_number = identity[4]
+
+        (unit,) = self._write_cmd(GET_LUMINANCE_UNIT)
+        try:
+            self._luminance_scale = LUMINANCE_SCALE[unit]
+        except KeyError as e:
+            raise CA410Error(f"Undefined CA-410 luminance unit {unit!r}") from e
 
         status = self.zero_calibration_status
         if status is ZeroCalibrationStatus.NOT_EXECUTED:
@@ -473,15 +506,16 @@ class CA410(Colorimeter):
         self._write_cmd(ZERO_CALIBRATE)
 
     def _raw_measure(self) -> RawColorimeterMeasurement:
-        """Measure once and return absolute XYZ.
+        """Measure once and return absolute XYZ in cd/m².
 
         ``MES,2`` appends X, Y and Z to the reply whatever the display mode, so
-        the driver never changes the stored display mode.
+        the driver never changes the stored display mode. If the probe's
+        luminance unit is fL, the driver converts XYZ to cd/m².
 
         Returns
         -------
         RawColorimeterMeasurement
-            XYZ in the probe's luminance unit, with :data:`UNKNOWN_EXPOSURE`.
+            XYZ in cd/m², with :data:`UNKNOWN_EXPOSURE`.
         """
         fields = self._write_cmd(MEASURE)
         try:
@@ -490,5 +524,7 @@ class CA410(Colorimeter):
             raise CA410Error(f"Non-numeric XYZ from the CA-410: {fields!r}") from e
 
         return RawColorimeterMeasurement(
-            XYZ=XYZ, exposure=UNKNOWN_EXPOSURE, device_id=self.readable_id
+            XYZ=XYZ * self._luminance_scale,
+            exposure=UNKNOWN_EXPOSURE,
+            device_id=self.readable_id,
         )
