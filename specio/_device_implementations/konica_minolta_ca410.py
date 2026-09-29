@@ -9,12 +9,13 @@ Konica Minolta.
 
 # cspell:ignore comports SEVENBITS STOPBITS
 
+import re
 from collections.abc import Mapping
 from enum import IntEnum, IntFlag
 from functools import cached_property
 from textwrap import dedent
 from types import MappingProxyType
-from typing import final
+from typing import NamedTuple, final
 
 import numpy as np
 import serial
@@ -50,6 +51,9 @@ USB_PRODUCT_ID = 0x210D
 DELIMITER = b"\r"
 """Terminator for every command and reply."""
 
+REPLY_CODE = re.compile(r"(OK|ER)[0-9]{2}")
+"""Shape of the response code that opens every reply."""
+
 RESPONSE_TIMEOUT = 35
 """Seconds to wait for a reply.
 
@@ -84,6 +88,29 @@ class CA410Error(DeviceError):
     def __init__(self, message: str, code: str | None = None) -> None:
         super().__init__(message)
         self.code = code
+
+
+class Command(NamedTuple):
+    """A command the driver sends, and the shape of its successful reply."""
+
+    text: str
+    """The command without its delimiter, for example ``"MES,2"``."""
+
+    fields: int
+    """Number of fields that follow the response code in an ``OK`` reply."""
+
+
+IDENTIFY = Command("IDO,0,1", fields=6)
+"""Read the product, variation, model, firmware, serial and custom numbers."""
+
+GET_ZERO_CALIBRATION_STATUS = Command("STR,23", fields=1)
+"""Read the zero calibration state."""
+
+ZERO_CALIBRATE = Command("ZRC", fields=0)
+"""Run zero calibration."""
+
+MEASURE = Command("MES,2", fields=10)
+"""Measure, and append absolute X, Y and Z to the reply."""
 
 
 class MeasurementStatus(IntFlag):
@@ -182,15 +209,15 @@ class CA410(Colorimeter):
         Raises
         ------
         CA410Error
-            If the probe does not answer or reports an error.
+            If the probe does not answer, answers with a malformed reply, or
+            reports an error.
         """
         if isinstance(port, str):
             port = serial.Serial(port, **self.SERIAL_KWARGS)
 
         self._port = port
-        self._port.reset_input_buffer()
 
-        identity = self._write_cmd("IDO,0,1")
+        identity = self._write_cmd(IDENTIFY)
         self._product = identity[0]
         self._probe_model = identity[2].strip()
         self._firmware = identity[3]
@@ -204,13 +231,17 @@ class CA410(Colorimeter):
                 "The CA-410 recommends zero calibration. Call zero_calibrate()."
             )
 
-    def _write_cmd(self, cmd: str) -> list[str]:
+    def _write_cmd(self, cmd: Command) -> list[str]:
         """Send one command and return the fields of its reply.
+
+        Input left over from an earlier command is discarded first, so a stale
+        reply can't answer this command. A reply whose shape doesn't match the
+        command raises instead of being parsed.
 
         Parameters
         ----------
-        cmd : str
-            The command without its delimiter, for example ``"MES,2"``.
+        cmd : Command
+            The command to send.
 
         Returns
         -------
@@ -220,23 +251,34 @@ class CA410(Colorimeter):
         Raises
         ------
         CA410Error
-            If the reply is missing or carries an ``ER`` code.
+            If the reply is missing, malformed, or carries an ``ER`` code.
         """
-        self._port.write(cmd.encode() + DELIMITER)
+        self._port.reset_input_buffer()
+        self._port.write(cmd.text.encode() + DELIMITER)
         reply = self._port.read_until(DELIMITER)
 
         if not reply.endswith(DELIMITER):
-            raise CA410Error(f"No response from the CA-410 to {cmd!r}")
+            raise CA410Error(f"No response from the CA-410 to {cmd.text!r}: {reply!r}")
 
-        code, *fields = reply.removesuffix(DELIMITER).decode().split(",")
+        malformed = f"Malformed reply from the CA-410 to {cmd.text!r}: {reply!r}"
+        try:
+            code, *fields = reply.removesuffix(DELIMITER).decode("ascii").split(",")
+        except UnicodeDecodeError as e:
+            raise CA410Error(malformed) from e
+
+        if not REPLY_CODE.fullmatch(code):
+            raise CA410Error(malformed)
 
         if code.startswith("ER"):
             message = ERROR_MESSAGES.get(code, "Unknown error")
-            raise CA410Error(f"CA-410 {code} on {cmd!r}: {message}", code)
+            raise CA410Error(f"CA-410 {code} on {cmd.text!r}: {message}", code)
+
+        if len(fields) != cmd.fields:
+            raise CA410Error(f"{malformed}, expected {cmd.fields} fields")
 
         status = MeasurementStatus(int(code.removeprefix("OK")))
         if status:
-            specio_warning(f"CA-410 {code} on {cmd!r}: {status!r}")
+            specio_warning(f"CA-410 {code} on {cmd.text!r}: {status!r}")
 
         return fields
 
@@ -263,7 +305,13 @@ class CA410(Colorimeter):
     @property
     def zero_calibration_status(self) -> ZeroCalibrationStatus:
         """The zero calibration state of the probe."""
-        return ZeroCalibrationStatus(int(self._write_cmd("STR,23")[0]))
+        (value,) = self._write_cmd(GET_ZERO_CALIBRATION_STATUS)
+        try:
+            return ZeroCalibrationStatus(int(value))
+        except ValueError as e:
+            raise CA410Error(
+                f"Undefined CA-410 zero calibration status {value!r}"
+            ) from e
 
     def zero_calibrate(self) -> None:
         """Run zero calibration, which closes and reopens the probe shutter.
@@ -273,7 +321,7 @@ class CA410(Colorimeter):
         CA410Error
             If the shutter does not block all light (``ER21``).
         """
-        self._write_cmd("ZRC")
+        self._write_cmd(ZERO_CALIBRATE)
 
     def _raw_measure(self) -> RawColorimeterMeasurement:
         """Measure once and return absolute XYZ.
@@ -286,8 +334,11 @@ class CA410(Colorimeter):
         RawColorimeterMeasurement
             XYZ in the probe's luminance unit, with :data:`UNKNOWN_EXPOSURE`.
         """
-        fields = self._write_cmd("MES,2")
-        XYZ = np.asarray([float(v) for v in fields[-3:]])
+        fields = self._write_cmd(MEASURE)
+        try:
+            XYZ = np.asarray([float(v) for v in fields[-3:]])
+        except ValueError as e:
+            raise CA410Error(f"Non-numeric XYZ from the CA-410: {fields!r}") from e
 
         return RawColorimeterMeasurement(
             XYZ=XYZ, exposure=UNKNOWN_EXPOSURE, device_id=self.readable_id

@@ -29,6 +29,12 @@ MEASURE_REPLY = (
 )
 
 
+def patch_reply(Y: float) -> bytes:
+    """Build an ``MES,2`` reply whose X, Y and Z all equal ``Y``."""
+    XYZ = b"%.7f,%.7f,%.7f" % (Y, Y, Y)
+    return b"OK00,P1,0,0.3333333,0.3333333,%.7f,+0.02,-99999999,%s\r" % (Y, XYZ)
+
+
 class StreamPort(serial.Serial):
     """A closed serial port backed by an in-memory input buffer.
 
@@ -186,6 +192,52 @@ class TestMeasure:
 
     def test_error_is_device_error(self):
         assert issubclass(CA410Error, DeviceError)
+
+
+class TestReplyFraming:
+    def test_discards_stale_reply_before_command(self):
+        port = make_port(MES_2=[patch_reply(1), patch_reply(2)])
+        ca = CA410(port)
+        ca.measure()
+        port.rx += b"OK00\r"  # The reply to a command abandoned by a timeout
+
+        np.testing.assert_allclose(ca.measure().XYZ, [2, 2, 2])
+
+    def test_late_reply_raises_then_recovers(self):
+        # A ZRC reply abandoned by Ctrl-C arrives after the next MES,2 is sent.
+        late = b"OK00\r" + patch_reply(1)
+        ca = CA410(make_port(MES_2=[late, patch_reply(2)]))
+
+        with pytest.raises(CA410Error, match="Malformed"):
+            ca.measure()
+        np.testing.assert_allclose(ca.measure().XYZ, [2, 2, 2])
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            pytest.param({"MES_2": MEASURE_REPLY[:-1] + b",\r"}, id="trailing comma"),
+            pytest.param({"MES_2": b"\x00" + MEASURE_REPLY}, id="leading NUL"),
+            pytest.param({"MES_2": b"OK00,P1,0\r"}, id="missing fields"),
+            pytest.param({"MES_2": b"\r"}, id="empty reply"),
+            pytest.param({"MES_2": MEASURE_REPLY[:20]}, id="partial reply"),
+            pytest.param({"MES_2": b"OK0" + MEASURE_REPLY[4:]}, id="short code"),
+            pytest.param({"MES_2": b"XX00" + MEASURE_REPLY[4:]}, id="unknown code"),
+            pytest.param(
+                {"MES_2": MEASURE_REPLY.replace(b"0.1610704", b"0.16107x4")},
+                id="non-numeric X",
+            ),
+            pytest.param(
+                {"MES_2": MEASURE_REPLY.replace(b"P1", b"P\xb1")}, id="non-ASCII"
+            ),
+            pytest.param({"STR_23": b"OK00,3\r"}, id="undefined zero status"),
+            pytest.param({"STR_23": b"OK00,\r"}, id="empty zero status"),
+            pytest.param({"STR_23": b"OK00\r"}, id="zero status missing"),
+            pytest.param({"IDO_0_1": b"OK00,CA-410\r"}, id="short identity"),
+        ],
+    )
+    def test_malformed_reply_raises(self, overrides: dict[str, bytes]):
+        with pytest.raises(CA410Error):
+            CA410(make_port(**overrides)).measure()
 
 
 class TestMeasurementStatus:
