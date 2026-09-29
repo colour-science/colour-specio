@@ -6,6 +6,8 @@ Error Codes). Every data reply starts with the code ``qqqqq``, and any value
 other than ``00000`` is an error (p.140).
 """
 
+# cspell:ignore qqqqq
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

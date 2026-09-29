@@ -6,6 +6,8 @@ no terminator (p.129), and ``Q`` exits remote mode, also with no terminator
 (p.132). Psychtoolbox's PR655init.m and PR670close.m send the same bytes.
 """
 
+# cspell:ignore psychtoolbox
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

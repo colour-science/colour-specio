@@ -2,6 +2,8 @@
 Common base classes and utilities for Photo Research devices.
 """
 
+# cspell:ignore addon photoresearch vids
+
 from __future__ import annotations
 
 import logging

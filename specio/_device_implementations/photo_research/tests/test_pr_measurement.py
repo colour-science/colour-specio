@@ -5,6 +5,8 @@ Reply formats follow the PR-655/670 User Manual: D5 (p.143), D13 and D111
 (p.145), D120 (p.147), D602 (p.148), SE (p.136) and SN (p.137).
 """
 
+# cspell:ignore keepends msec
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

@@ -107,7 +107,6 @@
     "allclose",
     "scipy",
     "usbserial",
-    "spectrascan",
     "Spectra",
     "SpectraScan"
   ],

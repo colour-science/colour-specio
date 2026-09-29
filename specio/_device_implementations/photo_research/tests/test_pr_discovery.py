@@ -7,6 +7,8 @@ below matches a CA-410 (VID 0x132B, the Konica Minolta vendor ID in the
 linux-usb.org usb.ids list).
 """
 
+# cspell:ignore arduino
+
 from __future__ import annotations
 
 import platform
@@ -195,7 +197,9 @@ class TestFailures:
 
         assert not silent.is_open
 
-    def test_unopenable_port_is_skipped(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_port_that_fails_to_open_is_skipped(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """A port that raises SerialException on open is skipped."""
         good_path = "/dev/cu.usbmodem3301"
         factory = _install(

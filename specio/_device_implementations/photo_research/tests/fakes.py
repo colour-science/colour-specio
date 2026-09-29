@@ -8,6 +8,8 @@ against it. Replies follow the formats in the PR-655/670 User Manual: the
 (p.141-148).
 """
 
+# cspell:ignore crlf msec serialutil
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -28,7 +30,7 @@ __all__ = [
 ]
 
 PR655_SHAPE = (380, 780, 4)
-"""Start, end and increment in nanometres of the PR-655 native sampling."""
+"""Start, end and increment in nanometers of the PR-655 native sampling."""
 
 _CR = b"\r"
 _CRLF = b"\r\n"
@@ -51,7 +53,7 @@ def d5_reply(
     values : npt.ArrayLike
         Spectral values, one per wavelength of ``shape``.
     shape : tuple[int, int, int], optional
-        Start, end and increment of the wavelength domain in nanometres.
+        Start, end and increment of the wavelength domain in nanometers.
     code : str, optional
         The five-character error code at the start of the header.
 

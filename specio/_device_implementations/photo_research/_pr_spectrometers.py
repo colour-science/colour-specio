@@ -2,6 +2,8 @@
 Photo Research spectrometer implementation.
 """
 
+# cspell:ignore msec
+
 from __future__ import annotations
 
 import logging
@@ -225,7 +227,7 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         Returns
         -------
         tuple[list[float], list[float]]
-            Wavelengths in nanometres and the spectral value at each.
+            Wavelengths in nanometers and the spectral value at each.
 
         Raises
         ------
