@@ -2,11 +2,13 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from colour import SpectralDistribution, SpectralShape
 
 from specio._device_implementations.virtual import (
     VirtualColorimeter,
     VirtualSpectrometer,
 )
+from specio.common import ColorimeterMeasurement, SPDMeasurement
 from specio.serialization.csmf import (
     CSMF_Data,
     CSMF_Metadata,
@@ -14,6 +16,15 @@ from specio.serialization.csmf import (
     load_csmf_file,
     save_csmf_file,
 )
+
+HYBRID_ROWS = 7
+"""Row count of the hybrid fixture, alternating spectral and colorimetric."""
+
+FIXED_SHORTNAME = "2519f9ba"
+"""The shortname of `fixed_spectral_data`.
+
+Spectral-only files are named from this hash, so the value is pinned.
+"""
 
 
 @pytest.fixture(scope="class")
@@ -54,67 +65,140 @@ class Test_CSMF_Files:
 
         assert read_data == virtual_data
 
+    def test_spectral_file_uses_legacy_field(self, virtual_data: CSMF_Data):
+        """A spectral-only file puts every row in `spd_measurements`.
+
+        Readers without wrapper support read that field, so they can
+        read these files.
+        """
+        buffer = csmf_data_to_buffer(virtual_data)
+
+        assert len(buffer.spd_measurements) == len(virtual_data.measurements)
+        assert len(buffer.measurements) == 0
+
 
 @pytest.fixture(scope="class")
 def hybrid_data() -> CSMF_Data:
-    """A disciplined session's file: bright rows spectral, dark rows
-    colorimetric. The colorimeter carries no spectrum at all.
+    """A file whose rows alternate spectral and colorimetric, starting and
+    ending on a spectral row. The colorimeter carries no spectrum at all.
     """
     vspr = VirtualSpectrometer()
     vcol = VirtualColorimeter()
 
-    spectral = [vspr.measure() for _ in range(4)]
-    colorimetric = [vcol.measure() for _ in range(3)]
-    measurements = [*spectral, *colorimetric]
+    measurements = [
+        vspr.measure() if i % 2 == 0 else vcol.measure() for i in range(HYBRID_ROWS)
+    ]
 
-    test_colors = np.random.uniform(0, 1023, (len(measurements), 3)).astype(np.float32)
-    order = np.arange(len(measurements))
+    test_colors = np.random.uniform(0, 1023, (HYBRID_ROWS, 3)).astype(np.float32)
+    order = np.random.permutation(HYBRID_ROWS)
 
     return CSMF_Data(
         measurements=np.asarray(measurements, dtype=object),
         test_colors=test_colors,
         order=order,
-        metadata=CSMF_Metadata(notes="Hybrid", software="specio-tests"),
+        metadata=CSMF_Metadata(
+            notes="Hybrid",
+            author="tjdcs",
+            location="virtual",
+            software="specio-tests",
+        ),
     )
 
 
-class Test_Colorimeter_Rows:
-    def test_colorimeter_rows_round_trip(self, tmp_path: Path, hybrid_data: CSMF_Data):
-        """A colorimeter reading survives a save/load cycle.
+def row_types(data: CSMF_Data) -> list[type]:
+    """List the type of each measurement row, in file order.
 
-        The reader previously walked only the spectral rows, so a hybrid
-        file came back short and the colorimetric readings vanished
-        silently.
+    Parameters
+    ----------
+    data : CSMF_Data
+        The file contents to inspect.
+
+    Returns
+    -------
+    list[type]
+        One entry per row.
+    """
+    return [type(m) for m in data.measurements]
+
+
+class Test_Colorimeter_Rows:
+    def test_hybrid_file_uses_wrapper_field(self, hybrid_data: CSMF_Data):
+        """A file with any colorimeter row puts every row in the
+        `measurements` wrapper, in order, and none in `spd_measurements`.
+        """
+        buffer = csmf_data_to_buffer(hybrid_data)
+
+        assert len(buffer.spd_measurements) == 0
+        assert len(buffer.measurements) == HYBRID_ROWS
+
+        wrapped = [
+            ColorimeterMeasurement if w.HasField("xyz") else SPDMeasurement
+            for w in buffer.measurements
+        ]
+        assert wrapped == row_types(hybrid_data)
+
+    def test_colorimeter_rows_round_trip(self, tmp_path: Path, hybrid_data: CSMF_Data):
+        """A file mixing colorimeter and spectral rows reads back equal to
+        what was written, with row order and row types intact.
         """
         p = save_csmf_file(tmp_path.joinpath("hybrid"), hybrid_data)
         read_data = load_csmf_file(p)
 
-        assert len(read_data.measurements) == len(hybrid_data.measurements)
-
-        kinds = [type(m).__name__ for m in read_data.measurements]
-        assert kinds.count("ColorimeterMeasurement") == 3
-        assert kinds.count("SPDMeasurement") == 4
-
-    def test_colorimeter_row_values_survive(
-        self, tmp_path: Path, hybrid_data: CSMF_Data
-    ):
-        """The colorimetric rows come back with their tristimulus intact."""
-        p = save_csmf_file(tmp_path.joinpath("hybrid"), hybrid_data)
-        read_data = load_csmf_file(p)
-
+        assert row_types(read_data) == row_types(hybrid_data)
         for original, restored in zip(
             hybrid_data.measurements, read_data.measurements, strict=True
         ):
-            np.testing.assert_allclose(restored.XYZ, original.XYZ, rtol=1e-5)
+            assert restored == original
+        assert read_data == hybrid_data
+
+
+@pytest.fixture()
+def fixed_spectral_data() -> CSMF_Data:
+    """Three spectral rows with fixed values, so their hash is stable."""
+    shape = SpectralShape(380, 780, 5)
+    ramp = np.linspace(0.1, 1.0, len(shape.wavelengths))
+    measurements = [
+        SPDMeasurement(SpectralDistribution(scale * ramp, shape), 1.0, "fixed")
+        for scale in (1.0, 2.0, 3.0)
+    ]
+    return CSMF_Data(
+        measurements=np.asarray(measurements, dtype=object),
+        test_colors=np.zeros((len(measurements), 3)),
+        order=np.arange(len(measurements)),
+    )
+
+
+class Test_Shortname:
+    def test_notes_are_the_shortname(self, hybrid_data: CSMF_Data):
+        """Non-empty notes name the file."""
+        assert hybrid_data.shortname == hybrid_data.metadata.notes
+
+    def test_spectral_shortname_is_stable(self, fixed_spectral_data: CSMF_Data):
+        """A spectral-only file without notes hashes to a pinned value."""
+        assert fixed_spectral_data.shortname == FIXED_SHORTNAME
+
+    def test_hybrid_shortname_hashes_rows(self, hybrid_data: CSMF_Data):
+        """A file with colorimeter rows and no notes still gets a hash name,
+        and `repr` works on it.
+        """
+        unnamed = CSMF_Data(
+            measurements=hybrid_data.measurements,
+            test_colors=hybrid_data.test_colors,
+            order=hybrid_data.order,
+        )
+
+        name = unnamed.shortname
+        assert len(name) == len(FIXED_SHORTNAME)
+        int(name, base=16)
+        assert repr(unnamed) == f"Measurement List - {name}"
 
 
 class Test_Ancillary:
     def test_ancillary_round_trips(self, tmp_path: Path, virtual_data: CSMF_Data):
         """Arbitrary caller bytes survive the file.
 
-        The field is in the schema so a caller can carry provenance the
-        format does not model. It was never plumbed through the Python
-        surface.
+        The schema reserves the field so a caller can carry provenance the
+        format does not model.
         """
         payload = b"\x00\x01provenance\xff"
         virtual_data.ancillary = payload
