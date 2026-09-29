@@ -205,7 +205,7 @@ ERROR_MESSAGES: Mapping[str, str] = MappingProxyType(
 
 
 class CA410Error(DeviceError):
-    """Raised when the CA-410 replies with an error code or does not reply."""
+    """Raised when the CA-410 sends no reply, an error code or a malformed reply."""
 
     def __init__(self, message: str, code: str | None = None) -> None:
         super().__init__(message)
@@ -320,14 +320,14 @@ class CA410(Colorimeter):
     def discover(cls) -> "CA410":
         """Connect to the first CA-410 probe found by USB vendor and product ID.
 
+        Ports that can't be opened, or that don't identify themselves as a
+        CA-410, are skipped. Once a port identifies as a CA-410, errors from
+        connecting to it propagate.
+
         Returns
         -------
         CA410
             The connected probe.
-
-        Ports that can't be opened, or that don't identify themselves as a
-        CA-410, are skipped. Once a port identifies as a CA-410, errors from
-        connecting to it propagate.
 
         Raises
         ------
