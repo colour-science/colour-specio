@@ -187,7 +187,7 @@ ERROR_MESSAGES: Mapping[str, str] = MappingProxyType(
         "ER03": "Invalid color difference or user calibration target value",
         "ER05": "User calibration failed: values were not all entered",
         "ER06": "User calibration failed: invalid measurement or target value",
-        "ER10": "Command error",
+        "ER10": "Command error, or zero calibration has not been executed",
         "ER16": "Calibration channel write failed: invalid data",
         "ER20": "EXTERNAL synchronization signal missing or out of range",
         "ER21": "Zero calibration error: light not fully blocked",

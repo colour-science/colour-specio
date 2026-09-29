@@ -257,6 +257,13 @@ class TestMeasure:
         with pytest.raises(CA410Error, match="measurable range"):
             ca.measure()
 
+    def test_command_error_names_zero_calibration(self):
+        # ER10 also means zero calibration has not been executed (p. 102, 112)
+        ca = CA410(make_port(MES_2=b"ER10\r"))
+
+        with pytest.raises(CA410Error, match="zero calibration"):
+            ca.measure()
+
     @pytest.mark.parametrize(
         "code",
         # Error Codes List, p. 111-115
