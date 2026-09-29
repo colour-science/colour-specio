@@ -346,18 +346,24 @@ class CS2000(SpecRadiometer):
 
     @property
     def syncmode(self) -> SyncSpeedSetting:
-        if hasattr(self, "_sync_speed_setting"):
-            return self._sync_speed_setting
+        """The synchronization mode stored in the instrument.
 
+        The CS-2000 stores its measurement conditions in flash memory, so this
+        setting survives power cycles (communication specification, section
+        1.7). Reading it queries the instrument, and setting it writes to
+        flash, which tolerates a limited number of writes.
+
+        Returns
+        -------
+        SyncSpeedSetting
+        """
         _, data = self._write_cmd("SCMR")
         mode = SyncMode(data[0])
         frequency = float(data[1]) / 100 if mode is SyncMode.INTERNAL else None
-        self._sync_speed_setting = SyncSpeedSetting(mode, frequency)
-
-        return self._sync_speed_setting
+        return SyncSpeedSetting(mode, frequency)
 
     @syncmode.setter
-    def syncmode(self, new_mode: SyncSpeedSetting):
+    def syncmode(self, new_mode: SyncSpeedSetting) -> None:
         update_cmd_str = bytearray(b"SCMS," + new_mode.mode)
         if new_mode.mode is SyncMode.INTERNAL:
             if (
@@ -371,19 +377,25 @@ class CS2000(SpecRadiometer):
 
             update_cmd_str += b"," + f"{round(new_mode.frequency * 100):.0f}".encode()
 
-        del self._sync_speed_setting
         self._write_cmd(bytes(update_cmd_str))
 
     @property
-    def speedmode(self):
-        if hasattr(self, "_cur_sms"):
-            return self._cur_sms
-        cr = self._write_cmd(b"SPMR")
-        self._cur_sms = SpeedModeSetting.from_command_response(cr)
-        return self._cur_sms
+    def speedmode(self) -> SpeedModeSetting:
+        """The speed mode stored in the instrument.
+
+        The CS-2000 stores its measurement conditions in flash memory, so this
+        setting survives power cycles (communication specification, section
+        1.7). Reading it queries the instrument, and setting it writes to
+        flash, which tolerates a limited number of writes.
+
+        Returns
+        -------
+        SpeedModeSetting
+        """
+        return SpeedModeSetting.from_command_response(self._write_cmd(b"SPMR"))
 
     @speedmode.setter
-    def speedmode(self, cr: SpeedModeSetting):
+    def speedmode(self, cr: SpeedModeSetting) -> None:
         _, _ = self._write_cmd(b"SPMS," + bytes(cr))
 
     def _raw_measure(self) -> RawSPDMeasurement:
