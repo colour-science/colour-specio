@@ -1,5 +1,5 @@
 """
-Test the Konica Minolta CA-410 driver against a scripted serial port.
+Test the Konica Minolta CA-410 driver against an in-memory serial port.
 
 The scripted replies are captured from a CA-VP427A probe connected over USB.
 """
@@ -29,29 +29,45 @@ MEASURE_REPLY = (
 )
 
 
-class ScriptedPort(serial.Serial):
-    """A closed serial port that answers each command from a reply table."""
+class StreamPort(serial.Serial):
+    """A closed serial port backed by an in-memory input buffer.
+
+    Each command written appends its scripted reply to the input buffer, and
+    pyserial's own ``read_until`` reads it back one byte at a time. An empty
+    input buffer reads as a timeout.
+    """
 
     def __init__(self, replies: Mapping[str, bytes | list[bytes]]) -> None:
         super().__init__()
         self.replies = {
             k: list(v) if isinstance(v, list) else [v] for k, v in replies.items()
         }
+        self.rx = bytearray()
         self.sent: list[bytes] = []
-        self._pending = b""
+        self.read_timeouts: dict[str, float | None] = {}
+        self.was_closed = False
 
     def write(self, b: bytes, /) -> int:  # type: ignore[override]
-        self.sent.append(b)
+        self.sent.append(bytes(b))
         queue = self.replies[b.decode().removesuffix("\r")]
-        self._pending = queue.pop(0) if len(queue) > 1 else queue[0]
+        self.rx += queue.pop(0) if len(queue) > 1 else queue[0]
         return len(b)
 
-    def read_until(self, expected: bytes = b"\n", size: int | None = None) -> bytes:
-        reply, self._pending = self._pending, b""
-        return reply
+    def read(self, size: int = 1) -> bytes:
+        self.read_timeouts[self.commands[-1]] = self.timeout
+        data = bytes(self.rx[:size])
+        del self.rx[:size]
+        return data
+
+    @property
+    def in_waiting(self) -> int:
+        return len(self.rx)
 
     def reset_input_buffer(self) -> None:
-        self._pending = b""
+        self.rx.clear()
+
+    def close(self) -> None:
+        self.was_closed = True
 
     @property
     def commands(self) -> list[str]:
@@ -59,7 +75,7 @@ class ScriptedPort(serial.Serial):
         return [c.decode().removesuffix("\r") for c in self.sent]
 
 
-def make_port(**overrides: bytes | list[bytes]) -> ScriptedPort:
+def make_port(**overrides: bytes | list[bytes]) -> StreamPort:
     """Build a port for a zero-calibrated probe, with optional reply overrides."""
     replies: dict[str, bytes | list[bytes]] = {
         "IDO,0,1": IDENTITY_REPLY,
@@ -68,7 +84,7 @@ def make_port(**overrides: bytes | list[bytes]) -> ScriptedPort:
         "MES,2": MEASURE_REPLY,
     }
     replies.update({k.replace("_", ","): v for k, v in overrides.items()})
-    return ScriptedPort(replies)
+    return StreamPort(replies)
 
 
 class TestConnect:
@@ -88,7 +104,7 @@ class TestConnect:
         assert all(c.endswith(b"\r") and b"\n" not in c for c in port.sent)
 
     def test_zero_calibrates_when_never_calibrated(self):
-        port = make_port(STR_23=[b"OK00,0\r", b"OK00,2\r"])
+        port = make_port(STR_23=b"OK00,0\r")
         CA410(port)
 
         assert "ZRC" in port.commands
