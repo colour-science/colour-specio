@@ -139,7 +139,7 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         self._write_cmd(f"SE{ms:d}")
 
     @property
-    def averaging_samples(self) -> int:
+    def average_samples(self) -> int:
         """
         Get the number of measurement cycles averaged per reading.
 
@@ -164,8 +164,8 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
                 return 1
         return 1
 
-    @averaging_samples.setter
-    def averaging_samples(self, count: int) -> None:
+    @average_samples.setter
+    def average_samples(self, count: int) -> None:
         """
         Set the number of measurement cycles to average per reading.
 

@@ -70,18 +70,18 @@ class TestAveragingSamples:
 
     def test_set_averaging(self, pr: PRSpectrometer) -> None:
         """SN3 should report 3 cycles."""
-        pr.averaging_samples = 3
-        assert pr.averaging_samples == 3
+        pr.average_samples = 3
+        assert pr.average_samples == 3
 
     def test_clamp_to_one(self, pr: PRSpectrometer) -> None:
         """SN0 should clamp to 1 cycle."""
-        pr.averaging_samples = 0
-        assert pr.averaging_samples == 1
+        pr.average_samples = 0
+        assert pr.average_samples == 1
 
     def test_restore_default(self, pr: PRSpectrometer) -> None:
         """SN1 should restore the default single-cycle averaging."""
-        pr.averaging_samples = 1
-        assert pr.averaging_samples == 1
+        pr.average_samples = 1
+        assert pr.average_samples == 1
 
 
 # -- Measure ------------------------------------------------------------------
@@ -94,7 +94,7 @@ class TestMeasure:
         """A single measurement should return a valid SPDMeasurement."""
         # Ensure adaptive mode and single averaging for fastest measurement
         pr.exposure = 0
-        pr.averaging_samples = 1
+        pr.average_samples = 1
 
         measurement = pr.measure()
 
