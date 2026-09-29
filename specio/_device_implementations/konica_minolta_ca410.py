@@ -239,6 +239,15 @@ ZERO_CALIBRATE = Command("ZRC", fields=0, timeout=ZERO_CALIBRATION_TIMEOUT)
 MEASURE = Command("MES,2", fields=10, timeout=MEASURE_TIMEOUT)
 """Measure, and append absolute X, Y and Z to the reply."""
 
+XYZ_FIELDS = slice(7, 10)
+"""Positions of X, Y and Z among the fields of an ``MES,2`` reply.
+
+X, Y and Z are receive parameters [8] to [10] (p. 101-102).
+"""
+
+NO_VALUE = -99999999.0
+"""Value the CA-410 sends in a reply field that holds no result (p. 101)."""
+
 
 class MeasurementStatus(IntFlag):
     """Conditions reported by a successful reply.
@@ -516,12 +525,21 @@ class CA410(Colorimeter):
         -------
         RawColorimeterMeasurement
             XYZ in cd/m², with :data:`UNKNOWN_EXPOSURE`.
+
+        Raises
+        ------
+        CA410Error
+            If the reply is malformed, reports an error, or holds
+            :data:`NO_VALUE` in place of X, Y or Z.
         """
         fields = self._write_cmd(MEASURE)
         try:
-            XYZ = np.asarray([float(v) for v in fields[-3:]])
+            XYZ = np.asarray([float(v) for v in fields[XYZ_FIELDS]])
         except ValueError as e:
             raise CA410Error(f"Non-numeric XYZ from the CA-410: {fields!r}") from e
+
+        if np.any(XYZ == NO_VALUE):
+            raise CA410Error(f"The CA-410 returned no value for XYZ: {fields!r}")
 
         return RawColorimeterMeasurement(
             XYZ=XYZ * self._luminance_scale,

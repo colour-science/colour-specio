@@ -225,6 +225,15 @@ class TestMeasure:
 
         np.testing.assert_allclose(ca.measure().XYZ, [3.426259] * 3, rtol=1e-6)
 
+    @pytest.mark.parametrize("value", [b"0.1610704", b"0.1777124", b"0.1835998"])
+    def test_missing_xyz_value_raises(self, value: bytes):
+        head, xyz = MEASURE_REPLY.split(b"-99999999,")
+        reply = head + b"-99999999," + xyz.replace(value, b"-99999999")
+        ca = CA410(make_port(MES_2=reply))
+
+        with pytest.raises(CA410Error, match="no value"):
+            ca.measure()
+
     def test_status_code_warns_and_returns(self):
         reply = MEASURE_REPLY.replace(b"OK00", b"OK06")
         ca = CA410(make_port(MES_2=reply))
