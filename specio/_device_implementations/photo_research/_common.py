@@ -25,6 +25,8 @@ from specio.common.exceptions import DeviceError
 if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
+    from serial.tools.list_ports_common import ListPortInfo
+
 __all__ = [
     "PRCommandError",
     "PRCommandResponse",
@@ -40,6 +42,21 @@ _CODE_PATTERN = re.compile(r"[+-]?\d+")
 _REMOTE_MODE_COMMAND = "PHOTO"
 _REMOTE_MODE_REPLY = b"REMOTE MODE"
 _QUIT_COMMAND = "Q"
+_PHOTO_RESEARCH_NAMES = ("photo research", "photoresearch")
+# USB vendor IDs of other instrument makers, from the linux-usb.org usb.ids
+# list. Discovery never opens these ports.
+_OTHER_VENDOR_VIDS: Mapping[int, str] = MappingProxyType({0x132B: "Konica Minolta"})
+# Device-name fragments of USB serial ports on each platform. The PR-655's
+# USB CDC interface appears as usbmodem on macOS and ttyACM on Linux; the
+# others cover USB-to-serial adapters. Windows ports are COM<n>, so there a
+# port must name Photo Research. An unlisted platform tries every port.
+_PORT_NAME_PATTERNS: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        "Darwin": ("usbmodem", "usbserial"),
+        "Linux": ("ttyACM", "ttyUSB"),
+        "Windows": (),
+    }
+)
 _PR_SERIAL_KWARGS: Mapping = MappingProxyType(
     {
         "baudrate": 9600,
@@ -149,6 +166,58 @@ class PRCommandError(DeviceError):
             f"data={response.raw_data!r}",
             *args,
         )
+
+
+def _names_photo_research(text: str | None) -> bool:
+    """
+    Report whether a USB metadata string names Photo Research.
+
+    Parameters
+    ----------
+    text : str | None
+        A manufacturer, product or description string.
+
+    Returns
+    -------
+    bool
+        True if the string contains a Photo Research name.
+    """
+    normalized = (text or "").lower()
+    return any(name in normalized for name in _PHOTO_RESEARCH_NAMES)
+
+
+def _is_candidate_port(port: ListPortInfo, system: str) -> bool:
+    """
+    Decide from USB metadata alone whether discovery may open a port.
+
+    A port that names Photo Research is a candidate. A port whose VID
+    belongs to another instrument vendor, or whose manufacturer string names
+    anyone else, is not. Any other port is a candidate when its device name
+    matches the platform's USB serial naming.
+
+    Parameters
+    ----------
+    port : ListPortInfo
+        A port from ``serial.tools.list_ports.comports()``.
+    system : str
+        The result of ``platform.system()``.
+
+    Returns
+    -------
+    bool
+        True if discovery may open the port and send the handshake.
+    """
+    if any(
+        _names_photo_research(text)
+        for text in (port.manufacturer, port.product, port.description)
+    ):
+        return True
+    if port.vid in _OTHER_VENDOR_VIDS or port.manufacturer:
+        return False
+    patterns = _PORT_NAME_PATTERNS.get(system)
+    if patterns is None:
+        return True
+    return any(pattern in port.device for pattern in patterns)
 
 
 class PRDeviceBase(ABC):
@@ -413,8 +482,10 @@ class PRDeviceBase(ABC):
         """
         Attempt automatic discovery of a Photo Research device serial port.
 
-        Scans platform-appropriate serial ports and attempts the PHOTO
-        handshake on each candidate.
+        Filters the serial ports by USB metadata before opening any, then
+        attempts the PHOTO handshake on each candidate. A port whose VID or
+        manufacturer string names another vendor is never opened. Every
+        candidate that fails the handshake is closed.
 
         Returns
         -------
@@ -426,28 +497,24 @@ class PRDeviceBase(ABC):
         serial.SerialException
             If no Photo Research device can be found.
         """
-        if platform.system() == "Darwin":
-            port_list = list(serial.tools.list_ports.grep("usbserial")) + list(
-                serial.tools.list_ports.grep("usbmodem")
-            )
-        elif platform.system() == "Windows":
-            port_list = list(serial.tools.list_ports.grep("Photo Research"))
-        elif platform.system() == "Linux":
-            port_list = list(serial.tools.list_ports.grep("ttyUSB"))
-        else:
-            port_list = list(serial.tools.list_ports.comports())
+        log = logging.getLogger("specio.PR")
+        system = platform.system()
+        candidates = [
+            port
+            for port in serial.tools.list_ports.comports()
+            if _is_candidate_port(port, system)
+        ]
 
-        if len(port_list) == 0:
+        if not candidates:
             raise serial.SerialException(
-                "No serial ports found for Photo Research device"
+                "No candidate serial ports found for a Photo Research device"
             )
 
-        for p in port_list:
+        for port in candidates:
             try:
-                device = cls(p.device)
-                return device
-            except Exception:
-                continue
+                return cls(port.device)
+            except (serial.SerialException, DeviceError) as error:
+                log.debug("No Photo Research device on %s: %s", port.device, error)
 
         raise serial.SerialException(
             textwrap.dedent(
