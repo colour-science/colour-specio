@@ -117,7 +117,7 @@ class TestConnect:
     def test_reads_identity(self):
         ca = CA410(make_port())
 
-        assert ca.manufacturer == "Konica Minolta"
+        assert ca.manufacturer == "Konica-Minolta"
         assert ca.model == "CA-410 CA-VP427A"
         assert ca.serial_number == "80005086"
         assert ca.firmware == "Ver.1.80.0002"
@@ -247,6 +247,22 @@ class TestMeasure:
 
         with pytest.raises(CA410Error, match="measurable range"):
             ca.measure()
+
+    @pytest.mark.parametrize(
+        "code",
+        # Error Codes List, p. 111-115
+        [
+            "ER03", "ER05", "ER06", "ER10", "ER16", "ER20", "ER21", "ER22",
+            "ER24", "ER31", "ER32", "ER50", "ER51", "ER53", "ER91", "ER99",
+        ],
+    )  # fmt: skip
+    def test_every_specified_error_code_has_a_message(self, code: str):
+        ca = CA410(make_port(MES_2=code.encode() + b"\r"))
+
+        with pytest.raises(CA410Error) as e:
+            ca.measure()
+        assert e.value.code == code
+        assert "Unknown error" not in str(e.value)
 
     def test_error_is_device_error(self):
         assert issubclass(CA410Error, DeviceError)

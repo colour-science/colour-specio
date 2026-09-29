@@ -184,7 +184,11 @@ its integration time."""
 
 ERROR_MESSAGES: Mapping[str, str] = MappingProxyType(
     {
+        "ER03": "Invalid color difference or user calibration target value",
+        "ER05": "User calibration failed: values were not all entered",
+        "ER06": "User calibration failed: invalid measurement or target value",
         "ER10": "Command error",
+        "ER16": "Calibration channel write failed: invalid data",
         "ER20": "EXTERNAL synchronization signal missing or out of range",
         "ER21": "Zero calibration error: light not fully blocked",
         "ER22": "The measurement target is beyond the measurable range",
@@ -194,6 +198,7 @@ ERROR_MESSAGES: Mapping[str, str] = MappingProxyType(
         "ER50": "FMA flicker exceeded 999.9%",
         "ER51": "FMA flicker synchronization frequency out of range",
         "ER53": "The probe cannot measure flicker",
+        "ER91": "Periodical calibration recommended date not set",
         "ER99": "Firmware error",
     }
 )
@@ -480,8 +485,8 @@ class CA410(Colorimeter):
 
     @property
     def manufacturer(self) -> str:
-        """The device manufacturer, "Konica Minolta"."""
-        return "Konica Minolta"
+        """The device manufacturer, "Konica-Minolta"."""
+        return "Konica-Minolta"
 
     @cached_property
     def model(self) -> str:
