@@ -12,10 +12,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import numpy as np
 from serial.serialutil import SerialBase
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Mapping
+
+    import numpy.typing as npt
 
 __all__ = [
     "PR655_SHAPE",
@@ -36,7 +39,7 @@ _SETUP_OK = b"00000\r\n"
 
 
 def d5_reply(
-    values: Sequence[float],
+    values: npt.ArrayLike,
     shape: tuple[int, int, int] = PR655_SHAPE,
     code: str = "00000",
 ) -> bytes:
@@ -45,7 +48,7 @@ def d5_reply(
 
     Parameters
     ----------
-    values : Sequence[float]
+    values : npt.ArrayLike
         Spectral values, one per wavelength of ``shape``.
     shape : tuple[int, int, int], optional
         Start, end and increment of the wavelength domain in nanometres.
@@ -62,7 +65,7 @@ def d5_reply(
     header = f"{code},0,5.560e+02,1.827e-01,5.147e+01".encode()
     lines = [header] + [
         f"{wl},{value:.3e}".encode()
-        for wl, value in zip(wavelengths, values, strict=True)
+        for wl, value in zip(wavelengths, np.asarray(values, dtype=float), strict=True)
     ]
     return _CRLF.join(lines) + _CRLF
 

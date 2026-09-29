@@ -2,57 +2,60 @@
 Photo Research spectrometer implementation.
 """
 
-import logging
-import time
-from dataclasses import dataclass
-from typing import final
+from __future__ import annotations
 
-from colour import SpectralDistribution, SpectralShape
+import logging
+import re
+from functools import cached_property
+from typing import ClassVar, final
+
+from colour import SpectralDistribution
 
 from specio.common import RawSPDMeasurement, SpecRadiometer
+from specio.common.exceptions import DeviceError
 
-from ._common import PRCommandError, PRCommandResponse, PRDeviceBase, PRResponseCode
+from ._common import PRDeviceBase
 
 _MEASUREMENT_TIMEOUT = 60.0
+_DATA_LINE_TIMEOUT = 2.0
+_MS_PER_SECOND = 1000.0
+_MIN_AVERAGE_SAMPLES = 1
+_MAX_AVERAGE_SAMPLES = 99
+
+# Field positions in the D602 verbose setup report, counted after the
+# error code (PR-655/670 User Manual, p.148).
+_D602_EXPOSURE_TIME_FIELD = 7
+_D602_CYCLES_FIELD = 9
+
+_LEADING_NUMBER = re.compile(r"\s*(\d+(?:\.\d+)?)")
+_MSEC_VALUE = re.compile(r"(\d+(?:\.\d+)?)\s*msec")
 
 
-@dataclass
-class PRModelConfig:
+def _leading_number(field: str, report: str) -> float:
     """
-    Spectral configuration for a specific Photo Research model.
+    Parse the number at the start of a setup-report field such as ``0 msec``.
 
     Parameters
     ----------
-    start_nm : int
-        Start wavelength in nanometers.
-    end_nm : int
-        End wavelength in nanometers.
-    interval_nm : int
-        Wavelength interval in nanometers.
-    num_points : int
-        Number of spectral data points.
-    min_exposure_ms : int
-        Minimum fixed exposure time in milliseconds.
-    max_exposure_ms : int
-        Maximum fixed exposure time in milliseconds.
+    field : str
+        The field text.
+    report : str
+        The whole report, quoted in the error message.
+
+    Returns
+    -------
+    float
+        The leading number.
+
+    Raises
+    ------
+    DeviceError
+        If the field does not start with a number.
     """
-
-    start_nm: int
-    end_nm: int
-    interval_nm: int
-    num_points: int
-    min_exposure_ms: int
-    max_exposure_ms: int
-
-
-_MODEL_CONFIGS: dict[str, PRModelConfig] = {
-    "PR-655": PRModelConfig(380, 780, 4, 101, 3, 6000),
-    "PR-670": PRModelConfig(380, 780, 2, 201, 6, 30000),
-}
-
-_DEFAULT_CONFIG = PRModelConfig(380, 780, 4, 101, 3, 6000)
-
-_MAX_AVERAGING_SAMPLES = 99
+    match = _LEADING_NUMBER.match(field)
+    if match is None:
+        raise DeviceError(f"Malformed Photo Research setup report: {report!r}")
+    return float(match.group(1))
 
 
 @final
@@ -61,82 +64,78 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
     Interface with a Photo Research SpectraScan PR-655 spectroradiometer.
 
     Implements the `specio.common.SpecRadiometer` interface for the
-    Photo Research PR-655 (and compatible PR-6xx models).
+    Photo Research PR-655. The PR-670 uses the same remote protocol.
 
     Raises
     ------
     serial.SerialException
         If discovery fails or there are serial port issues.
     PRCommandError
-        If a command to the hardware device returns an error.
+        If a command to the hardware device returns an error code.
+    DeviceError
+        If the device returns a reply the driver cannot parse.
     """
 
+    ADAPTIVE_EXPOSURE: ClassVar[float] = 0.0
+    """Exposure value that selects, and reports, adaptive exposure mode."""
+
     @property
-    def _config(self) -> PRModelConfig:
+    def exposure(self) -> float:
         """
-        Get the spectral configuration for the connected model.
+        Get the exposure (integration) time setting in seconds.
+
+        Reads the verbose setup report (D602). In adaptive mode the report
+        gives an exposure time of 0, so the getter returns
+        :attr:`ADAPTIVE_EXPOSURE`. The integration time that adaptive mode
+        chose for a measurement is in that measurement's ``exposure``.
 
         Returns
         -------
-        PRModelConfig
-            Spectral configuration matching the device model.
-        """
-        return _MODEL_CONFIGS.get(self.model, _DEFAULT_CONFIG)
-
-    @property
-    def exposure(self) -> str:
-        """
-        Get the current exposure (integration) time setting.
-
-        Returns the human-readable exposure string from the device
-        configuration. Field 6 of the D602 response contains the mode
-        ("Adaptive" or "Fixed") and field 7 contains the time value
-        (e.g., "50 ms"). When in adaptive mode, returns "Adaptive".
-
-        Returns
-        -------
-        str
-            Exposure time description from the device (e.g., "Adaptive",
-            "50 ms").
+        float
+            Fixed exposure time in seconds, or :attr:`ADAPTIVE_EXPOSURE`.
 
         Raises
         ------
         PRCommandError
             If the configuration query fails.
+        DeviceError
+            If the report has no readable exposure time.
         """
-        response = self._write_cmd("D602")
-        parts = response.raw_data.split(",")
-        if len(parts) >= 8:
-            mode = parts[6].strip()
-            if mode == "Adaptive":
-                return "Adaptive"
-            return parts[7].strip()
-        return "unknown"
+        report = self._write_cmd("D602").raw_data
+        fields = report.split(",")
+        if len(fields) <= _D602_EXPOSURE_TIME_FIELD:
+            raise DeviceError(f"Malformed Photo Research setup report: {report!r}")
+        milliseconds = _leading_number(fields[_D602_EXPOSURE_TIME_FIELD], report)
+        return milliseconds / _MS_PER_SECOND
 
     @exposure.setter
-    def exposure(self, ms: int) -> None:
+    def exposure(self, seconds: float) -> None:
         """
         Set the detector exposure (integration) time.
 
-        Sends the ``SE`` command. Use ``0`` for adaptive exposure, or a
-        value in milliseconds for a fixed exposure time.
+        Sends the ``SE`` command, which takes whole milliseconds. The PR-655
+        accepts 3 ms to 6 s and the PR-670 6 ms to 30 s. The device rejects
+        other values with ``INVALID_EXPOSURE_VALUE``.
 
         Parameters
         ----------
-        ms : int
-            Exposure time in milliseconds. ``0`` selects adaptive mode.
-            Positive values are clamped to the model's supported range
-            (e.g. 3-6000 ms for the PR-655, 6-30000 ms for the PR-670).
+        seconds : float
+            Exposure time in seconds, or :attr:`ADAPTIVE_EXPOSURE` to select
+            adaptive mode.
 
         Raises
         ------
+        ValueError
+            If ``seconds`` is negative.
         PRCommandError
-            If the setup command fails.
+            If the device rejects the exposure time.
         """
-        config = self._config
-        if ms != 0:
-            ms = max(config.min_exposure_ms, min(ms, config.max_exposure_ms))
-        self._write_cmd(f"SE{ms:d}")
+        if seconds < 0:
+            raise ValueError(f"exposure must not be negative, got {seconds!r}")
+        milliseconds = 0
+        if seconds != self.ADAPTIVE_EXPOSURE:
+            milliseconds = max(1, round(seconds * _MS_PER_SECOND))
+        self._write_cmd(f"SE{milliseconds:d}")
 
     @property
     def average_samples(self) -> int:
@@ -152,17 +151,14 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         ------
         PRCommandError
             If the configuration query fails.
+        DeviceError
+            If the report has no readable cycle count.
         """
-        response = self._write_cmd("D602")
-        parts = response.raw_data.split(",")
-        # Cycles is the 10th field (e.g., "2 cycles")
-        if len(parts) >= 10:
-            cycles_str = parts[9].strip().split()[0]
-            try:
-                return int(cycles_str)
-            except ValueError:
-                return 1
-        return 1
+        report = self._write_cmd("D602").raw_data
+        fields = report.split(",")
+        if len(fields) <= _D602_CYCLES_FIELD:
+            raise DeviceError(f"Malformed Photo Research setup report: {report!r}")
+        return int(_leading_number(fields[_D602_CYCLES_FIELD], report))
 
     @average_samples.setter
     def average_samples(self, count: int) -> None:
@@ -181,77 +177,124 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         PRCommandError
             If the setup command fails.
         """
-        count = max(1, min(count, _MAX_AVERAGING_SAMPLES))
+        count = max(_MIN_AVERAGE_SAMPLES, min(count, _MAX_AVERAGE_SAMPLES))
         self._write_cmd(f"SN{count:d}")
+
+    @cached_property
+    def _spectral_points(self) -> int:
+        """
+        The number of spectral data points, from the D120 hardware report.
+
+        Returns
+        -------
+        int
+            Number of ``wl,value`` lines that D5 returns.
+
+        Raises
+        ------
+        DeviceError
+            If the report has no readable point count.
+        """
+        report = self._write_cmd("D120").raw_data
+        points = report.split(",")[0].strip()
+        if not points.isdigit():
+            raise DeviceError(f"Malformed Photo Research D120 report: {report!r}")
+        return int(points)
+
+    def _read_spectrum(self, points: int) -> tuple[list[float], list[float]]:
+        """
+        Read the ``wl,value`` lines that follow a D5 header.
+
+        Parameters
+        ----------
+        points : int
+            Number of lines to read.
+
+        Returns
+        -------
+        tuple[list[float], list[float]]
+            Wavelengths in nanometres and the spectral value at each.
+
+        Raises
+        ------
+        DeviceError
+            If fewer lines arrive than expected, or a line is malformed.
+        """
+        wavelengths: list[float] = []
+        values: list[float] = []
+        with self._port_timeout(_DATA_LINE_TIMEOUT):
+            for index in range(points):
+                line = self._read_response()
+                if not line:
+                    raise DeviceError(f"D5 returned {index} of {points} spectral lines")
+                try:
+                    wavelength, value = (float(part) for part in line.split(","))
+                except ValueError as error:
+                    raise DeviceError(
+                        f"Malformed D5 spectral line: {line!r}"
+                    ) from error
+                wavelengths.append(wavelength)
+                values.append(value)
+        return wavelengths, values
+
+    def _last_exposure(self) -> float:
+        """
+        Return the exposure time of the last measurement, from D13.
+
+        Returns
+        -------
+        float
+            Exposure time in seconds.
+
+        Raises
+        ------
+        DeviceError
+            If the report has no readable exposure time.
+        """
+        report = self._write_cmd("D13").raw_data
+        match = _MSEC_VALUE.search(report)
+        if match is None:
+            raise DeviceError(f"Malformed Photo Research D13 report: {report!r}")
+        return float(match.group(1)) / _MS_PER_SECOND
 
     def _raw_measure(self) -> RawSPDMeasurement:
         """
         Perform a spectral measurement and return raw spectral data.
 
-        Triggers a measurement (M0 — measure and hold), then retrieves
-        spectral data (D5). The D5 response is 101 lines of
-        ``wavelength,power`` pairs for the PR-655 (380-780nm at 4nm
-        intervals).
+        Triggers a measurement (M0), then retrieves the spectrum (D5). D5
+        returns a header line, then one ``wavelength,value`` line per
+        spectral point. The spectral domain comes from those wavelengths,
+        and D13 supplies the exposure time the measurement used.
 
         Returns
         -------
         RawSPDMeasurement
             Raw measurement data containing spectral power distribution,
-            spectrometer ID, and exposure time.
+            spectrometer ID, and exposure time in seconds.
 
         Raises
         ------
         PRCommandError
-            If the measurement or data retrieval command fails.
+            If the measurement or data retrieval command returns an error.
+        DeviceError
+            If the spectral data is short or malformed.
         """
         log = logging.getLogger("specio.PR")
-        config = self._config
-        original_timeout = self._port.timeout
+        points = self._spectral_points
+        spectrometer_id = self.readable_id
 
-        # Trigger measurement with extended timeout
         log.debug("Triggering spectral measurement (M0)")
-        self._port.reset_input_buffer()
-        self._write_serial("M0\r")
-        self._last_cmd_time = time.time()
+        self._write_cmd("M0", timeout=_MEASUREMENT_TIMEOUT)
 
-        measure_response = self._read_response(timeout=_MEASUREMENT_TIMEOUT)
-
-        # Parse M0 response (status code only, no inline data)
-        parsed = self._parse_response(measure_response)
-        if parsed.code != PRResponseCode.OK:
-            self._port.apply_settings({"timeout": original_timeout})
-            raise PRCommandError(
-                PRCommandResponse(
-                    code=parsed.code,
-                    raw_data=measure_response,
-                ),
-                f"Measurement failed: {measure_response}",
-            )
-
-        # Retrieve spectral data — D5 returns data lines directly
         log.debug("Retrieving spectral data (D5)")
-        self._write_serial("D5\r")
-        self._last_cmd_time = time.time()
+        self._write_cmd("D5")
+        wavelengths, values = self._read_spectrum(points)
+        exposure = self._last_exposure()
 
-        # Read all spectral data lines
-        powers: list[float] = []
-        for _ in range(config.num_points):
-            line = self._read_response(timeout=2.0)
-            parts = line.split(",")
-            if len(parts) >= 2:
-                powers.append(float(parts[1]))
-            elif line:
-                powers.append(float(line))
-
-        self._port.apply_settings({"timeout": original_timeout})
-
-        shape = SpectralShape(config.start_nm, config.end_nm, config.interval_nm)
-        spd = SpectralDistribution(data=powers, domain=shape)
-
-        log.debug("Measurement complete: %d spectral points", len(powers))
+        log.debug("Measurement complete: %d spectral points", len(values))
 
         return RawSPDMeasurement(
-            spd=spd,
-            spectrometer_id=self.readable_id,
-            exposure=-1.0,
+            spd=SpectralDistribution(data=values, domain=wavelengths),
+            spectrometer_id=spectrometer_id,
+            exposure=exposure,
         )

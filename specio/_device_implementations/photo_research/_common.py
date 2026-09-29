@@ -10,6 +10,7 @@ import re
 import textwrap
 import time
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
@@ -22,7 +23,7 @@ import serial.tools.list_ports
 from specio.common.exceptions import DeviceError
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterator, Mapping
 
 __all__ = [
     "PRCommandError",
@@ -232,6 +233,33 @@ class PRDeviceBase(ABC):
         log.debug("Exiting remote mode")
         self._write_serial("Q\r")
 
+    @contextmanager
+    def _port_timeout(self, timeout: float | None) -> Iterator[None]:
+        """
+        Apply a temporary serial timeout and restore the previous one on exit.
+
+        Parameters
+        ----------
+        timeout : float | None
+            Timeout in seconds for the duration of the block. If None, the
+            current timeout stays in force.
+
+        Yields
+        ------
+        None
+            Control returns to the block with the timeout applied.
+        """
+        if timeout is None:
+            yield
+            return
+
+        original_timeout = self._port.timeout
+        self._port.timeout = timeout
+        try:
+            yield
+        finally:
+            self._port.timeout = original_timeout
+
     def _read_response(self, timeout: float | None = None) -> str:
         """
         Read a response line from the device with configurable timeout.
@@ -246,28 +274,28 @@ class PRDeviceBase(ABC):
         str
             The decoded response string with whitespace stripped.
         """
-        if timeout is not None:
-            original_timeout = self._port.timeout
-            self._port.apply_settings({"timeout": timeout})
-
-        response = self._port.readline()
-
-        if timeout is not None:
-            self._port.apply_settings({"timeout": original_timeout})
+        with self._port_timeout(timeout):
+            response = self._port.readline()
 
         return response.decode("ascii", errors="replace").strip()
 
-    def _write_cmd(self, command: str) -> PRCommandResponse:
+    def _write_cmd(
+        self, command: str, timeout: float | None = None
+    ) -> PRCommandResponse:
         """
         Send a command to the device and parse the response.
 
         Enforces a minimum inter-command delay, sends the command
-        character-by-character, and parses the 5-digit response code.
+        character-by-character with a CR terminator, and parses the signed
+        response code.
 
         Parameters
         ----------
         command : str
             The command string to send (without terminator).
+        timeout : float | None, optional
+            Timeout in seconds for the response. If None, uses the current
+            port timeout.
 
         Returns
         -------
@@ -294,7 +322,7 @@ class PRDeviceBase(ABC):
         self._write_serial(command + "\r")
         self._last_cmd_time = time.time()
 
-        raw_response = self._read_response()
+        raw_response = self._read_response(timeout=timeout)
 
         response = self._parse_response(raw_response)
 
