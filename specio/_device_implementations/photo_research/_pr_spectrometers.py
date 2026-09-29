@@ -16,6 +16,18 @@ from specio.common.exceptions import DeviceError
 
 from ._common import PRDeviceBase
 
+__version__ = "0.4.1.post0"
+__author__ = "Tucker Downs"
+__copyright__ = "Copyright 2022 Specio Developers"
+__license__ = "BSD-3-Clause"
+__maintainer__ = "Tucker Downs"
+__email__ = "tucker@tjdcs.dev"
+__status__ = "Development"
+
+__all__ = [
+    "PRSpectrometer",
+]
+
 _MEASUREMENT_TIMEOUT = 60.0
 _DATA_LINE_TIMEOUT = 2.0
 _MS_PER_SECOND = 1000.0

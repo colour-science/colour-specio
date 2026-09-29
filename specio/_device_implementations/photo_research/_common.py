@@ -27,6 +27,14 @@ if TYPE_CHECKING:
 
     from serial.tools.list_ports_common import ListPortInfo
 
+__version__ = "0.4.1.post0"
+__author__ = "Tucker Downs"
+__copyright__ = "Copyright 2022 Specio Developers"
+__license__ = "BSD-3-Clause"
+__maintainer__ = "Tucker Downs"
+__email__ = "tucker@tjdcs.dev"
+__status__ = "Development"
+
 __all__ = [
     "PRCommandError",
     "PRCommandResponse",
@@ -42,6 +50,7 @@ _CODE_PATTERN = re.compile(r"[+-]?\d+")
 _REMOTE_MODE_COMMAND = "PHOTO"
 _REMOTE_MODE_REPLY = b"REMOTE MODE"
 _QUIT_COMMAND = "Q"
+_COMMAND_TERMINATOR = "\r"
 _PHOTO_RESEARCH_NAMES = ("photo research", "photoresearch")
 # USB vendor IDs of other instrument makers, from the linux-usb.org usb.ids
 # list. Discovery never opens these ports.
@@ -420,6 +429,8 @@ class PRDeviceBase(ABC):
         ------
         PRCommandError
             If the device returns a non-OK response code.
+        DeviceError
+            If the response is missing or has no numeric code.
         """
         log = logging.getLogger("specio.PR")
         log.debug("Sending CMD: %s", command)
@@ -433,7 +444,7 @@ class PRDeviceBase(ABC):
             )
 
         self._port.reset_input_buffer()
-        self._write_serial(command + "\r")
+        self._write_serial(command + _COMMAND_TERMINATOR)
         self._last_cmd_time = time.time()
 
         raw_response = self._read_response(timeout=timeout)
