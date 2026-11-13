@@ -1,0 +1,43 @@
+name: Continuous Integration
+
+on: [push, pull_request]
+
+jobs:
+  tests:
+    name: ${{ matrix.os }} - Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        python-version: ['3.13', '3.14', '3.15']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install uv
+          uv sync --locked
+      - name: Test optimised import
+        run: uv run --frozen python -OO -c "import specio"
+      - name: Unit tests
+        run: uv run --frozen pytest
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install dependencies
+        run: |
+          python -m pip install uv
+          uv sync --locked
+      - name: Lint
+        run: uv run --frozen ruff check .
+      - name: Format
+        run: uv run --frozen ruff format --check .
+      - name: Type checking
+        run: uv run --frozen pyright

@@ -6,7 +6,7 @@ authors = [{ name = "Tucker Downs", email = "tucker@tjdcs.dev" }]
 maintainers = [{ name = "Tucker Downs", email = "tucker@tjdcs.dev" }]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.13,<3.15"
+requires-python = ">=3.13,<3.16"
 keywords = [
     "colour-science",
     "spectrometer",
@@ -27,6 +27,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Scientific/Engineering",
     "Topic :: System :: Hardware :: Hardware Drivers",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -125,7 +126,7 @@ indent-style = "space"
 convention = "numpy"
 
 [tool.pyright]
-include = ["examples", "tests", "specio"]
+include = ["examples", "specio"]
 exclude = ["**/__pycache__", "**/*_pb2.py", "**/*_pb2.pyi"]
 venvPath = "."
 venv = ".venv"
@@ -148,9 +149,11 @@ reportUnsupportedDunderAll = false
 reportUnusedExpression = false
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "specio"]
+testpaths = ["specio"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 norecursedirs = [".*", "*.egg", "dist", "build", "__pycache__", "*.pyc"]
-ignore_glob = ["**/*_pb2.py", "**/*_pb2.pyi"]
+
+[tool.uv.sources]
+colour-science = { git = "https://github.com/colour-science/colour.git", branch = "feature/array-api-review" }
