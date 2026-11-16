@@ -49,6 +49,15 @@ _COMMAND_DELAY = 0.05
 _CHAR_WRITE_DELAY = 0.01
 _DEFAULT_SERIAL_TIMEOUT = 5.0
 _REMOTE_MODE_TIMEOUT = 10.0
+# Before each command the driver discards input until the line has been
+# quiet this long. A reply line streams with gaps of about a millisecond per
+# byte at 9600 baud, so 50 ms of silence means the device has stopped.
+_DRAIN_QUIET_GAP = 0.05
+# A port that never falls quiet stops the drain after this long. The bound
+# covers a whole PR-670 spectrum still streaming at 9600 baud, about 3 s.
+_DRAIN_MAX_TIME = 4.0
+# The drain's clock; tests replace it with the fake port's virtual clock.
+_monotonic = time.monotonic
 # A reply line is a five-character code, ``00000`` or a minus sign and four
 # digits such as ``-0008``, then optionally a comma and data (PR-655/670 User
 # Manual, p.140). The fixed width keeps a three-digit wavelength in a D5 data
@@ -446,15 +455,41 @@ class PRDeviceBase(ABC):
             raise PRIncompleteReplyError("Photo Research reply timed out", raw)
         return raw[: -len(_REPLY_TERMINATOR)].decode("ascii", errors="replace")
 
+    def _drain_input(self) -> None:
+        """
+        Discard input until the line has been quiet for a short gap.
+
+        ``reset_input_buffer`` drops only bytes already received. The rest
+        of a cut or late reply, or lines that trail a short spectrum read,
+        can still be in transit, so the drain keeps reading until
+        ``_DRAIN_QUIET_GAP`` passes with no byte, or ``_DRAIN_MAX_TIME`` runs
+        out on a port that never falls quiet. Discarded bytes are logged at
+        debug level.
+        """
+        log = logging.getLogger("specio.PR")
+        deadline = _monotonic() + _DRAIN_MAX_TIME
+        discarded = bytearray()
+        with self._port_timeout(_DRAIN_QUIET_GAP):
+            while True:
+                chunk = self._port.read(max(1, self._port.in_waiting))
+                if not chunk:
+                    break
+                discarded += chunk
+                if _monotonic() >= deadline:
+                    log.debug("Input still arriving after %.1f s", _DRAIN_MAX_TIME)
+                    break
+        if discarded:
+            log.debug("Discarded %d stale bytes: %r", len(discarded), bytes(discarded))
+
     def _write_cmd(
         self, command: str, timeout: float | None = None
     ) -> PRCommandResponse:
         """
         Send a command to the device and parse the response.
 
-        Enforces a minimum inter-command delay, sends the command
-        character-by-character with a CR terminator, and parses the signed
-        response code.
+        Enforces a minimum inter-command delay, drains stale input, sends
+        the command character-by-character with a CR terminator, and parses
+        the reply code.
 
         Parameters
         ----------
@@ -487,7 +522,7 @@ class PRDeviceBase(ABC):
                 )
             )
 
-        self._port.reset_input_buffer()
+        self._drain_input()
         self._write_serial(command + _COMMAND_TERMINATOR)
         self._last_cmd_time = time.time()
 

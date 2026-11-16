@@ -62,6 +62,7 @@ def open_pr(
             return port
 
         monkeypatch.setattr(serial, "Serial", open_port)
+        monkeypatch.setattr(_common, "_monotonic", port.clock)
         return PRSpectrometer(FAKE_PORT_NAME), port
 
     return factory

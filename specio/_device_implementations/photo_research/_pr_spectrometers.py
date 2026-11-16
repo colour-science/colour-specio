@@ -306,6 +306,9 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         log.debug("Triggering spectral measurement (M0)")
         self._write_cmd("M0", timeout=_MEASUREMENT_TIMEOUT)
 
+        # Some firmware may stream the spectrum after the M0 code. The drain
+        # before D5 discards that stream, so D5 reads its own header and
+        # spectrum either way.
         log.debug("Retrieving spectral data (D5)")
         self._write_cmd("D5")
         wavelengths, values = self._read_spectrum(points)
