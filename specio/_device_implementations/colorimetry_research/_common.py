@@ -19,6 +19,8 @@ import serial
 import serial.tools.list_ports
 from aenum import MultiValueEnum
 
+from specio.common.exceptions import DeviceError
+
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
@@ -194,7 +196,7 @@ class CommandResponse:
     arguments: list[str]
 
 
-class CommandError(Exception):
+class CommandError(DeviceError):
     """
     Describes an issue with sending a command to CR
     """
@@ -239,7 +241,7 @@ OUT_OF_RANGE_CODES = frozenset(
 )
 
 
-class IncompleteResponse(Exception):
+class IncompleteResponse(DeviceError):
     """The device did not finish answering within the command's deadline.
 
     Distinct from `CommandError`, which carries a response the device
@@ -258,7 +260,7 @@ class IncompleteResponse(Exception):
         )
 
 
-class UnexpectedResponse(Exception):
+class UnexpectedResponse(DeviceError):
     """The device answered, but not with the value the command asked for.
 
     Distinct from `IncompleteResponse`, which is the absence of an answer,
