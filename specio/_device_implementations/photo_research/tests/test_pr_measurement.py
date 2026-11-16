@@ -193,6 +193,14 @@ class TestExposure:
 
         assert pr.exposure == PRSpectrometer.ADAPTIVE_EXPOSURE
 
+    def test_adaptive_mode_field_wins_over_the_time_field(
+        self, open_pr: OpenPR
+    ) -> None:
+        """In adaptive mode the time field holds a stale or minimum exposure."""
+        pr, _ = open_pr({"D602": _d602("Adaptive", "3 msec", "1 cycles")})
+
+        assert pr.exposure == PRSpectrometer.ADAPTIVE_EXPOSURE
+
     def test_fixed_setting_reads_in_seconds(self, open_pr: OpenPR) -> None:
         """A fixed exposure reads back in seconds."""
         pr, _ = open_pr({"D602": _d602("Fixed", "100 msec", "1 cycles")})
