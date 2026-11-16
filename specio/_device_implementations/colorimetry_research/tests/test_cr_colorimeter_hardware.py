@@ -41,8 +41,7 @@ def colorimeter() -> Iterator[CRColorimeter]:
 
 def _settings(device: CRColorimeter) -> dict[str, str]:
     return {
-        query: str(device._write_cmd(query).arguments)
-        for query in _SETTING_QUERIES
+        query: str(device._write_cmd(query).arguments) for query in _SETTING_QUERIES
     }
 
 
@@ -54,7 +53,7 @@ def test_the_instrument_identifies_as_a_cr_colorimeter(
 
 
 def test_every_configured_filter_has_a_name(colorimeter: CRColorimeter) -> None:
-    """"None" is always ID 0, and each configured filter, such as an ND
+    """ "None" is always ID 0, and each configured filter, such as an ND
     attachment, maps to a non-empty name without its type field."""
     filters = colorimeter.available_filters
 
