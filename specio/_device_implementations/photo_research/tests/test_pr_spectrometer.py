@@ -45,8 +45,8 @@ class TestIdentity:
     """Verify basic device identity properties."""
 
     def test_model_starts_with_pr(self, pr: PRSpectrometer) -> None:
-        """Model string should start with 'PR-'."""
-        assert pr.model.startswith("PR-")
+        """The model names a PR-6xx: "PR-655" or, on firmware 2.51, "PR655"."""
+        assert pr.model.replace("-", "").startswith("PR6")
 
     def test_serial_number_non_empty(self, pr: PRSpectrometer) -> None:
         """Serial number must be a non-empty string."""
