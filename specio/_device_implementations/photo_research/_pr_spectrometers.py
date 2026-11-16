@@ -219,6 +219,9 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         """
         Read the ``wl,value`` lines that follow a D5 header.
 
+        If a line is missing or malformed, the remaining input is drained
+        before the error is raised.
+
         Parameters
         ----------
         points : int
@@ -238,23 +241,29 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         """
         wavelengths: list[float] = []
         values: list[float] = []
-        with self._port_timeout(_DATA_LINE_TIMEOUT):
-            for index in range(points):
-                try:
-                    line = self._read_response()
-                except PRIncompleteReplyError as error:
-                    raise PRIncompleteReplyError(
-                        f"D5 returned {index} of {points} spectral lines",
-                        error.received,
-                    ) from error
-                try:
-                    wavelength, value = (float(part) for part in line.split(","))
-                except ValueError as error:
-                    raise DeviceError(
-                        f"Malformed D5 spectral line: {line!r}"
-                    ) from error
-                wavelengths.append(wavelength)
-                values.append(value)
+        try:
+            with self._port_timeout(_DATA_LINE_TIMEOUT):
+                for index in range(points):
+                    try:
+                        line = self._read_response()
+                    except PRIncompleteReplyError as error:
+                        raise PRIncompleteReplyError(
+                            f"D5 returned {index} of {points} spectral lines",
+                            error.received,
+                        ) from error
+                    try:
+                        wavelength, value = (float(part) for part in line.split(","))
+                    except ValueError as error:
+                        raise DeviceError(
+                            f"Malformed D5 spectral line: {line!r}"
+                        ) from error
+                    wavelengths.append(wavelength)
+                    values.append(value)
+        except DeviceError:
+            # The rest of the spectrum may still be arriving. Drain it now,
+            # so the caller's next command starts on a quiet line.
+            self._drain_input()
+            raise
         return wavelengths, values
 
     def _last_exposure(self) -> float:

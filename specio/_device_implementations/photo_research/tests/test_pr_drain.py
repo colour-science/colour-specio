@@ -22,6 +22,7 @@ from specio._device_implementations.photo_research.tests.fakes import (
     Reply,
     d5_reply,
 )
+from specio.common.exceptions import DeviceError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -35,6 +36,8 @@ if TYPE_CHECKING:
 
 # Just past the driver's 5 s default reply timeout.
 _JUST_AFTER_TIMEOUT = 5.01
+# Just past the driver's 2 s timeout for each D5 data line.
+_JUST_AFTER_LINE_TIMEOUT = 2.01
 # A device's processing time before it answers.
 _LATENCY = 0.02
 # Delay before stale bytes trail a reply, shorter than the quiet gap.
@@ -122,3 +125,40 @@ class TestDrainBeforeWrite:
         elapsed = port.clock() - start
         assert elapsed >= _common._DRAIN_MAX_TIME
         assert elapsed <= _common._DRAIN_MAX_TIME + _common._DRAIN_QUIET_GAP
+
+
+class TestSpectrumRecovery:
+    """A failed spectrum read leaves the line clean before it raises."""
+
+    @staticmethod
+    def _assert_line_is_clean(port: FakePRPort) -> None:
+        """Nothing is left to read, now or within the port timeout."""
+        assert port.read_until(b"\r\n") == b""
+
+    def test_malformed_line(self, open_pr: OpenPR) -> None:
+        """The lines after a malformed one are drained before the error."""
+        lines = d5_reply(np.ones(_PR655_POINTS)).splitlines(keepends=True)
+        lines[10] = b"garbage\r\n"
+        pr, port = open_pr({"D5": b"".join(lines)})
+
+        with pytest.raises(DeviceError, match="garbage"):
+            pr.measure()
+
+        assert "D13" not in port.commands
+        self._assert_line_is_clean(port)
+
+    def test_short_read_then_command(self, open_pr: OpenPR) -> None:
+        """Lines that arrive after the line timeout are drained, not read."""
+        lines = d5_reply(np.ones(_PR655_POINTS)).splitlines(keepends=True)
+        received = 1 + _PR655_POINTS // 2
+        late = [
+            (_JUST_AFTER_LINE_TIMEOUT + index * _TRAIL, line)
+            for index, line in enumerate(lines[received:])
+        ]
+        pr, port = open_pr({"D5": Reply((0.0, b"".join(lines[:received])), *late)})
+
+        with pytest.raises(PRIncompleteReplyError, match="spectral lines"):
+            pr.measure()
+
+        self._assert_line_is_clean(port)
+        assert pr.serial_number == "67065106"
