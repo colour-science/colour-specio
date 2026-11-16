@@ -76,21 +76,37 @@ class TestAvailableFilters:
     def test_filter_rows_that_arrive_after_the_header_are_read(self) -> None:
         """A slow reply's rows are not yet waiting when the header parses;
         reading the count as "no filters" cached an empty wheel."""
-        port = _Port([b"1,Photopic\r\n", b"2,X\r\n"], waiting=0)
+        port = _Port([b"1,ND-120-1.3,Radiance\r\n", b"2,ND-120-2.0,Radiance\r\n"], waiting=0)
         d, _ = _colorimeter({"RC Filter": b"OK:0:RC Filter:2"}, port)
 
-        assert dict(d.available_filters) == {0: "None", 1: "Photopic", 2: "X"}
+        assert dict(d.available_filters) == {0: "None", 1: "ND-120-1.3", 2: "ND-120-2.0"}
 
     def test_rows_already_waiting_are_read(self) -> None:
-        port = _Port([b"1,Photopic\r\n"], waiting=1)
+        port = _Port([b"1,ND-120-1.3,Radiance\r\n"], waiting=1)
         d, _ = _colorimeter({"RC Filter": b"OK:0:RC Filter:1"}, port)
 
-        assert dict(d.available_filters) == {0: "None", 1: "Photopic"}
+        assert dict(d.available_filters) == {0: "None", 1: "ND-120-1.3"}
+
+
+class TestCurrentFilters:
+    def test_a_selected_filter_resolves_by_its_name(self) -> None:
+        """RS Filter names a selected filter without the type field that
+        RC Filter lists, as a CR-120 reports them."""
+        port = _Port([b"1,ND-120-1.3,Radiance\r\n", b"2,ND-120-2.0,Radiance\r\n"], 1)
+        d, _ = _colorimeter(
+            {
+                "RC Filter": b"OK:0:RC Filter:2",
+                "RS Filter": b"OK:0:RS Filter:ND-120-2.0,None,None",
+            },
+            port,
+        )
+
+        assert d.current_filters == (2, 0, 0)
 
 
 class TestFilterWarning:
     def _with_filters(self, selected: bytes) -> CRColorimeter:
-        port = _Port([b"1,Photopic\r\n", b"2,X\r\n"], waiting=1)
+        port = _Port([b"1,ND-120-1.3,Radiance\r\n", b"2,ND-120-2.0,Radiance\r\n"], waiting=1)
         device, _ = _colorimeter(
             {"RC Filter": b"OK:0:RC Filter:2", "RS Filter": b"OK:0:RS Filter:" + selected},
             port,
@@ -106,7 +122,7 @@ class TestFilterWarning:
             d._warn_filter_selection()
 
     def test_two_selected_filters_are_stacked(self) -> None:
-        d = self._with_filters(b"Photopic,X,None")
+        d = self._with_filters(b"ND-120-1.3,ND-120-2.0,None")
 
-        with pytest.warns(SpecioRuntimeWarning, match="stacked filters: Photopic, X"):
+        with pytest.warns(SpecioRuntimeWarning, match="stacked filters: ND-120-1.3, ND-120-2.0"):
             d._warn_filter_selection()

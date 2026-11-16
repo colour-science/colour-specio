@@ -152,10 +152,12 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
             if len(rows) == 1 and rows[0].isdigit():
                 count = int(rows[0])
                 rows = [self._port.readline().decode().strip() for _ in range(count)]
+            # A row is `ID,name,type`, such as `1,ND-120-1.3,Radiance`; RS
+            # Filter reports a selected filter by its name alone.
             filters = bidict.bidict()
             for row in rows:
-                index, name = row.split(",", 1)
-                filters[int(index)] = name
+                fields = row.split(",")
+                filters[int(fields[0])] = fields[1]
             filters[0] = "None"
             self._available_filters = filters
         return self._available_filters
