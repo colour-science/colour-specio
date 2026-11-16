@@ -1,6 +1,7 @@
 #!python3
 """
 CSMF Doctor fixes some broken CSMF files by recalculating derived attributes.
+Each row keeps its status and settings, which are recorded data and not derived.
 """
 
 import argparse

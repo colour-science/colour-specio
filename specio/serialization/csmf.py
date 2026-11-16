@@ -78,6 +78,16 @@ class CSMF_Data:
     ``measurements`` wrapper field instead, so one ordered list keeps the
     correspondence with ``order`` and ``test_colors``. A reader without
     wrapper support sees zero measurements in such a file.
+
+    Each row may also carry the ``status`` and ``settings`` it was taken
+    under (see :class:`~specio.common.ReadingStatus`). The file stores them
+    in optional fields of the row, written only when a row has them, so a
+    file whose rows have neither is byte-identical to one written before the
+    fields existed, and an older file reads with ``status`` None and empty
+    ``settings``. A reader built on the older schema ignores the fields.
+    Neither enters :attr:`shortname`, which hashes only the rows' spectra or
+    XYZ. :func:`~specio.scripts.csmf_anonymize.main` leaves them in place
+    because they hold instrument conditions and no personal data.
     """
 
     test_colors: ndarray

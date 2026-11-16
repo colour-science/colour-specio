@@ -7,7 +7,7 @@ import datetime
 import numpy as np
 from colour import SpectralDistribution, SpectralShape
 
-from specio.common import ColorimeterMeasurement, SPDMeasurement
+from specio.common import ColorimeterMeasurement, ReadingStatus, SPDMeasurement
 from specio.serialization.protobuf import common_pb2, measurements_pb2
 
 __version__ = "0.4.1.post0"
@@ -28,9 +28,40 @@ __all__ = [
 ]
 
 
+def _status_to_proto(status: ReadingStatus) -> measurements_pb2.Reading_Status:
+    return measurements_pb2.Reading_Status(
+        code=status.code, message=status.message, flags=status.flags
+    )
+
+
+def _status_from_proto(
+    buffer: measurements_pb2.Colorimeter_Measurement | measurements_pb2.SPD_Measurement,
+) -> ReadingStatus | None:
+    """Read a row's status, or None when the file carries none.
+
+    Files written before the status field existed have no ``status``
+    message, and so does a row whose driver reported none. A message that is
+    present, even an empty one, reads back as a status.
+    """
+    if not buffer.HasField("status"):
+        return None
+    return ReadingStatus(
+        code=buffer.status.code,
+        message=buffer.status.message,
+        flags=tuple(buffer.status.flags),
+    )
+
+
 def colorimeter_measurement_to_proto(
     col: ColorimeterMeasurement,
 ) -> measurements_pb2.Colorimeter_Measurement:
+    """
+    Transform a :class:`ColorimeterMeasurement` to a protobuf.
+
+    The row's ``status`` is written only when it is not None and its
+    ``settings`` only when non-empty, so a measurement with neither
+    serializes to the bytes it did before those fields existed.
+    """
     buf = measurements_pb2.Colorimeter_Measurement(
         XYZ=common_pb2.XYZ_value(X=col.XYZ[0], Y=col.XYZ[1], Z=col.XYZ[2]),
         xy=common_pb2.xy_value(x=col.xy[0], y=col.xy[1]),
@@ -41,6 +72,10 @@ def colorimeter_measurement_to_proto(
         exposure=col.exposure,
         colorimeter_id=col.device_id,
     )
+    if col.status is not None:
+        buf.status.CopyFrom(_status_to_proto(col.status))
+    if col.settings:
+        buf.settings.update(col.settings)
     return buf
 
 
@@ -59,6 +94,8 @@ def colorimeter_measurement_from_bytes(
         exposure=buffer.exposure,
         device_id=buffer.colorimeter_id,
         no_compute=not recompute,
+        status=_status_from_proto(buffer),
+        settings=dict(buffer.settings),
     )
 
     if not recompute:
@@ -77,6 +114,10 @@ def spd_measurement_to_proto(
     """
     Transform input :class:SPDMeasurement to a protobuf. Proto defined by
     specio/serialization/protobuf/measurements.proto
+
+    The row's ``status`` is written only when it is not None and its
+    ``settings`` only when non-empty, so a measurement with neither
+    serializes to the bytes it did before those fields existed.
 
     Parameters
     ----------
@@ -109,6 +150,10 @@ def spd_measurement_to_proto(
         spectrometer_id=spd.spectrometer_id,
         time=common_pb2.Timestamp(timestr=spd.time.isoformat()),
     )
+    if spd.status is not None:
+        buf.status.CopyFrom(_status_to_proto(spd.status))
+    if spd.settings:
+        buf.settings.update(spd.settings)
     return buf
 
 
@@ -148,7 +193,9 @@ def spd_measurement_from_bytes(
     Returns
     -------
     SPDMeasurement
-        The measurement data de-serialized.
+        The measurement data de-serialized. Its ``status`` is None and its
+        ``settings`` empty when the data carries neither, as in files
+        written before those fields existed. Both survive ``recompute``.
 
     See Also
     --------
@@ -165,7 +212,12 @@ def spd_measurement_from_bytes(
     )
 
     ret = SPDMeasurement(
-        spd, buffer.exposure, buffer.spectrometer_id, no_compute=not recompute
+        spd,
+        buffer.exposure,
+        buffer.spectrometer_id,
+        no_compute=not recompute,
+        status=_status_from_proto(buffer),
+        settings=dict(buffer.settings),
     )
     if not recompute:
         ret.cct = buffer.cct.cct
