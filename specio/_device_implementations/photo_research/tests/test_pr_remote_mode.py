@@ -15,11 +15,14 @@ from typing import TYPE_CHECKING
 import pytest
 import serial
 
-from specio._device_implementations.photo_research import PRSpectrometer
+from specio._device_implementations.photo_research import PRSpectrometer, _common
 from specio._device_implementations.photo_research.tests.conftest import (
     FAKE_PORT_NAME,
 )
-from specio._device_implementations.photo_research.tests.fakes import FakePRPort
+from specio._device_implementations.photo_research.tests.fakes import (
+    FakePRPort,
+    Reply,
+)
 from specio.common.exceptions import DeviceError
 
 if TYPE_CHECKING:
@@ -69,6 +72,79 @@ class TestEnterRemoteMode:
         pr = PRSpectrometer(FAKE_PORT_NAME)
 
         assert port.commands[:3] == ["PHOTO", "", "D111"]
+        assert pr.model == "PR-655"
+
+
+def _install_timed(monkeypatch: pytest.MonkeyPatch, port: FakePRPort) -> None:
+    """Open ``port`` with the driver's timeout, on the fake's virtual clock."""
+
+    def open_port(
+        *_args: object, timeout: float | None = None, **_kwargs: object
+    ) -> FakePRPort:
+        port.timeout = timeout
+        return port
+
+    monkeypatch.setattr(serial, "Serial", open_port)
+    monkeypatch.setattr(_common, "_monotonic", port.clock)
+
+
+class TestReconnectIsBounded:
+    """The reconnect after a silent handshake costs little on an empty port."""
+
+    def test_a_silent_port_is_refused_quickly(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Nothing answers the ended line, so no model request follows."""
+        port = FakePRPort({"": b"", "D111": b""}, handshake=b"")
+        _install_timed(monkeypatch, port)
+
+        with pytest.raises(DeviceError, match="handshake"):
+            PRSpectrometer(FAKE_PORT_NAME)
+
+        assert "D111" not in port.commands
+        assert port.clock() <= (
+            _common._REMOTE_MODE_TIMEOUT + _common._RECONNECT_TIMEOUT
+        )
+        assert not port.is_open
+
+    def test_a_port_that_answers_only_the_line_is_refused_quickly(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The model request after the ended line has a short timeout too."""
+        port = FakePRPort({"D111": b""}, handshake=b"")
+        _install_timed(monkeypatch, port)
+
+        with pytest.raises(DeviceError, match="handshake"):
+            PRSpectrometer(FAKE_PORT_NAME)
+
+        assert port.clock() <= (
+            _common._REMOTE_MODE_TIMEOUT
+            + 2 * _common._RECONNECT_TIMEOUT
+            + _common._DRAIN_QUIET_GAP
+        )
+
+    def test_a_line_answer_that_is_no_reply_is_refused(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Only a reply code shows a Photo Research device in remote mode."""
+        port = FakePRPort({"": b"garbage\r\n"}, handshake=b"")
+        _install_timed(monkeypatch, port)
+
+        with pytest.raises(DeviceError, match="handshake"):
+            PRSpectrometer(FAKE_PORT_NAME)
+
+        assert "D111" not in port.commands
+
+    def test_a_slow_answer_within_the_bound_reconnects(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An answer inside the reconnect timeout is still accepted."""
+        late = _common._RECONNECT_TIMEOUT / 2
+        port = FakePRPort({"": Reply((late, b"-1000\r\n"))}, handshake=b"")
+        _install_timed(monkeypatch, port)
+
+        pr = PRSpectrometer(FAKE_PORT_NAME)
+
         assert pr.model == "PR-655"
 
 

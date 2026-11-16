@@ -49,6 +49,12 @@ _COMMAND_DELAY = 0.05
 _CHAR_WRITE_DELAY = 0.01
 _DEFAULT_SERIAL_TIMEOUT = 5.0
 _REMOTE_MODE_TIMEOUT = 10.0
+# After a silent handshake, the time allowed for each reply that shows the
+# device is already in remote mode. Discovery pays it on every silent port,
+# so it is kept far below the default reply timeout. Hardware assumption,
+# not confirmed on a unit: an error reply and the D111 reply each take
+# milliseconds at 9600 baud, so 1 s leaves ample margin.
+_RECONNECT_TIMEOUT = 1.0
 # Before each command the driver discards input until the line has been
 # quiet this long. A reply line streams with gaps of about a millisecond per
 # byte at 9600 baud, so 50 ms of silence means the device has stopped.
@@ -370,10 +376,8 @@ class PRDeviceBase(ABC):
         terminator. The device responds with ``REMOTE MODE`` on success.
 
         A device already in remote mode, left there by a caller that did
-        not close it, says nothing to ``PHOTO``: it takes the characters
-        as the start of a command line. On silence the line is ended with
-        a bare terminator and the device asked for its model; an answer
-        means it is already in remote mode.
+        not close it, says nothing to ``PHOTO``. On silence the driver
+        tries :meth:`_resume_remote_mode`.
 
         Raises
         ------
@@ -390,23 +394,43 @@ class PRDeviceBase(ABC):
             reply = self._port.read_until(_REMOTE_MODE_REPLY)
 
         if not reply:
-            # Already in remote mode? End the partial line, discard the
-            # device's answer to it, and ask for something it can answer.
-            self._write_serial(_COMMAND_TERMINATOR)
-            self._read_response()
-            try:
-                self._write_cmd("D111")
-            except DeviceError as e:
-                raise DeviceError(
-                    f"Unexpected handshake response: {reply!r}, and no answer "
-                    "to a model request"
-                ) from e
+            self._resume_remote_mode()
             log.debug("Device was already in remote mode")
             return
         if _REMOTE_MODE_REPLY not in reply:
             raise DeviceError(f"Unexpected handshake response: {reply!r}")
 
         log.debug("Remote mode entered successfully")
+
+    def _resume_remote_mode(self) -> None:
+        """
+        Confirm that a device silent to ``PHOTO`` is already in remote mode.
+
+        Ends the line that ``PHOTO`` began with a bare terminator. A device
+        in remote mode answers that line with a reply code, then answers a
+        model request (D111). Each reply has :data:`_RECONNECT_TIMEOUT`, so
+        a port with nothing on it is refused within that time, and no model
+        request is sent to a port that did not answer the line.
+
+        Raises
+        ------
+        DeviceError
+            If the line or the model request gets no reply, or the answer
+            to the line is not a reply code.
+        """
+        # Hardware assumption, not confirmed on a unit: a PR-655 in remote
+        # mode buffers the characters of PHOTO as a command line without
+        # replying, and answers the terminated line with an error code such
+        # as -1000 (illegal command), CR LF terminated like any reply.
+        self._write_serial(_COMMAND_TERMINATOR)
+        try:
+            self._parse_response(self._read_response(timeout=_RECONNECT_TIMEOUT))
+            self._write_cmd("D111", timeout=_RECONNECT_TIMEOUT)
+        except DeviceError as error:
+            raise DeviceError(
+                "No reply to the PHOTO handshake, and no sign of a device "
+                f"already in remote mode: {error}"
+            ) from error
 
     def _exit_remote_mode(self) -> None:
         """
