@@ -235,15 +235,21 @@ def load_csmf_file(file: str | Path, recompute: bool = False) -> CSMF_Data:
     # Files of spectral readings alone use the legacy field.
     measurements = []
     if len(pbuf.measurements) > 0:
-        for wrapper in pbuf.measurements:
+        for index, wrapper in enumerate(pbuf.measurements):
             if wrapper.HasField("xyz"):
                 measurements.append(
                     colorimeter_measurement_from_bytes(wrapper.xyz, recompute=recompute)
                 )
-            else:
+            elif wrapper.HasField("spd"):
                 measurements.append(
                     spd_measurement_from_bytes(wrapper.spd, recompute=recompute)
                 )
+            else:
+                msg = (
+                    f"measurement {index} of {file} carries neither a spectrum "
+                    "nor an XYZ reading"
+                )
+                raise ValueError(msg)
     else:
         for mbuf in pbuf.spd_measurements:
             measurements.append(spd_measurement_from_bytes(mbuf, recompute=recompute))

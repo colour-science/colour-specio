@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -18,6 +19,7 @@ from specio.serialization.csmf import (
     load_csmf_file,
     save_csmf_file,
 )
+from specio.serialization.protobuf import measurements_pb2
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -206,16 +208,28 @@ class Test_Ancillary:
         format does not model.
         """
         payload = b"\x00\x01provenance\xff"
-        virtual_data.ancillary = payload
+        data = dataclasses.replace(virtual_data, ancillary=payload)
 
-        p = save_csmf_file(tmp_path.joinpath("ancillary"), virtual_data)
+        p = save_csmf_file(tmp_path.joinpath("ancillary"), data)
         read_data = load_csmf_file(p)
 
         assert read_data.ancillary == payload
 
     def test_ancillary_defaults_empty(self, tmp_path: Path, virtual_data: CSMF_Data):
         """A file written without ancillary bytes reads back as empty."""
-        virtual_data.ancillary = b""
-        p = save_csmf_file(tmp_path.joinpath("plain"), virtual_data)
+        data = dataclasses.replace(virtual_data, ancillary=b"")
+        p = save_csmf_file(tmp_path.joinpath("plain"), data)
 
         assert load_csmf_file(p).ancillary == b""
+
+
+def test_a_row_with_neither_reading_is_refused(tmp_path: Path):
+    """A measurement wrapper holding no spectrum and no XYZ is a damaged
+    file, not an empty spectral row."""
+    pbuf = measurements_pb2.CSFM_File()
+    pbuf.measurements.add()
+    path = tmp_path.joinpath("empty.csmf")
+    path.write_bytes(pbuf.SerializeToString())
+
+    with pytest.raises(ValueError, match="neither a spectrum nor an XYZ"):
+        load_csmf_file(path)
