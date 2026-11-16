@@ -44,10 +44,10 @@ class CSMF_Metadata:
     conducted.
     """
 
-    notes: None | str = None
-    author: None | str = None
-    location: None | str = None
-    software: None | str = "colour-specio"
+    notes: str | None = None
+    author: str | None = None
+    location: str | None = None
+    software: str | None = "colour-specio"
 
 
 @dataclass(kw_only=True)
