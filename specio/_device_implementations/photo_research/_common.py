@@ -227,9 +227,9 @@ class MeasurementOutOfRange(PRCommandError):
 
     A result rather than a failed exchange: weak light means the target is
     below the device's floor, overload that it is above its ceiling (an
-    aperture or filter problem). Neither is a retry. Named to match the
-    Colorimetry Research driver's type of the same name, which callers
-    match on by name.
+    aperture or filter problem). Neither is a retry. The Colorimetry
+    Research driver raises a type of the same name, a subclass of its own
+    command error, for its out-of-range codes.
 
     A too-dark refusal from a measurement carries the floor the device
     states for its optical setup, and where that floor comes from, so a

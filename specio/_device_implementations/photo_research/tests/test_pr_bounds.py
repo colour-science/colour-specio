@@ -62,10 +62,6 @@ class TestOutOfRangeIsItsOwnType:
         """Callers that only knew PRCommandError keep working."""
         assert issubclass(MeasurementOutOfRange, PRCommandError)
 
-    def test_it_is_named_as_callers_match_it(self) -> None:
-        """The type shares its name with the Colorimetry Research driver's."""
-        assert MeasurementOutOfRange.__name__ == "MeasurementOutOfRange"
-
 
 class TestARefusalCarriesItsBound:
     def test_weak_light_carries_the_stated_floor(self, open_pr: OpenPR) -> None:
