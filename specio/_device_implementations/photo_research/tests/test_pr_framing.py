@@ -95,7 +95,7 @@ class TestStrictCodes:
             b"-8\r\n",
             b"0000\r\n",
             b"000000,PR-655\r\n",
-            b"67065106\r\n",
+            b"10000001\r\n",
             b" 00000,PR-655\r\n",
             b"\r\n",
         ],

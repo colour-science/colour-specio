@@ -111,7 +111,7 @@ def default_replies() -> dict[str, ScriptedReply | list[ScriptedReply]]:
     start, end, step = PR655_SHAPE
     points = (end - start) // step + 1
     return {
-        "D110": b"00000,67065106\r\n",
+        "D110": b"00000,10000001\r\n",
         "D111": b"00000,PR-655\r\n",
         "D120": f"00000,{points},0.00,{start},{end},{step},256,7,247\r\n".encode(),
         "M0": b"00000\r\n",
