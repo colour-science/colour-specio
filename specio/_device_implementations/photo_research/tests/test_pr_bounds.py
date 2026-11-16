@@ -24,6 +24,7 @@ from specio._device_implementations.photo_research import (
     PRCommandError,
     PRResponseCode,
 )
+from specio._device_implementations.photo_research.tests.fakes import Reply
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
     from specio._device_implementations.photo_research import PRSpectrometer
     from specio._device_implementations.photo_research.tests.fakes import (
         FakePRPort,
+        ScriptedReply,
     )
 
     OpenPR = Callable[..., tuple[PRSpectrometer, FakePRPort]]
@@ -115,9 +117,8 @@ class TestStatedFloor:
             _setup(addon="ND-2"),
             _setup(primary="SL-1X"),
             _setup(aperture="1/2 deg"),
-            b"-1000\r\n",
         ],
-        ids=["add-on", "other-lens", "other-aperture", "unreadable"],
+        ids=["add-on", "other-lens", "other-aperture"],
     )
     def test_a_setup_the_chart_does_not_state_has_no_floor(
         self, open_pr: OpenPR, setup: bytes
@@ -126,6 +127,55 @@ class TestStatedFloor:
 
         assert pr.floor is None
         assert pr.floor_source is None
+
+    def test_an_unreadable_setup_is_an_error(self, open_pr: OpenPR) -> None:
+        """A failed D602 read is not a setup without a floor."""
+        pr, _ = open_pr({"D602": b"-1000\r\n"})
+
+        with pytest.raises(PRCommandError):
+            _ = pr.floor
+
+    def test_the_floor_is_read_on_every_access(self, open_pr: OpenPR) -> None:
+        """A changed aperture or accessory changes the floor."""
+        pr, port = open_pr({"D602": [_setup(), _setup(aperture="1/2 deg")]})
+
+        assert pr.floor == pytest.approx(3.4)
+        assert pr.floor is None
+        assert port.commands.count("D602") == 2
+
+
+class TestARefusalWithAnUnreadableFloor:
+    """A failed D602 read leaves the refusal intact, without a floor."""
+
+    @pytest.mark.parametrize(
+        "setup",
+        [b"-1000\r\n", Reply((0.0, b"00000,MS-75,None,None"))],
+        ids=["error-code", "cut-reply"],
+    )
+    def test_the_refusal_is_raised_without_a_floor(
+        self, open_pr: OpenPR, setup: ScriptedReply
+    ) -> None:
+        pr, _ = open_pr({"M0": b"-0008\r\n", "D602": setup})
+
+        with pytest.raises(MeasurementOutOfRange) as caught:
+            pr.measure()
+
+        assert caught.value.response.code is PRResponseCode.WEAK_LIGHT
+        assert caught.value.floor is None
+        assert caught.value.floor_source is None
+
+    def test_each_refusal_reads_the_current_setup(self, open_pr: OpenPR) -> None:
+        pr, _ = open_pr(
+            {"M0": b"-0008\r\n", "D602": [_setup(), _setup(aperture="1/2 deg")]}
+        )
+
+        with pytest.raises(MeasurementOutOfRange) as first:
+            pr.measure()
+        with pytest.raises(MeasurementOutOfRange) as second:
+            pr.measure()
+
+        assert first.value.floor == pytest.approx(3.4)
+        assert second.value.floor is None
 
 
 class TestRecordedDevice:
