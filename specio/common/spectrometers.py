@@ -3,8 +3,10 @@ Define basic spectrometer interfaces
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from functools import cached_property
+from types import MappingProxyType
 from typing import Any, Self
 
 import numpy as np
@@ -15,6 +17,8 @@ from colour.temperature import uv_to_CCT
 
 from ._measurements_shared import (
     BaseMeasurement,
+    ReadingStatus,
+    combine_statuses,
     compute_color_properties,
     validate_repetitions,
 )
@@ -39,12 +43,18 @@ class RawSPDMeasurement:
     """
     A measurement only containing the bare minimum amount of collected data.
     Expected to be further transformed into `specio.spectrometers.common.Measurement`.
+
+    ``status`` is the device's verdict on the reading, or None when the driver
+    has none. ``settings`` holds the instrument settings the reading was taken
+    under, with lower_snake_case keys and string values.
     """
 
     spd: SpectralDistribution
     exposure: float
     spectrometer_id: str
     anc_data: Any = None
+    status: ReadingStatus | None = None
+    settings: dict[str, str] = field(default_factory=dict)
 
 
 class SPDMeasurement(BaseMeasurement):
@@ -74,6 +84,8 @@ class SPDMeasurement(BaseMeasurement):
             exposure=raw.exposure,
             spectrometer_id=raw.spectrometer_id,
             ancillary=raw.anc_data,
+            status=raw.status,
+            settings=raw.settings,
         )
 
     def __init__(
@@ -83,6 +95,9 @@ class SPDMeasurement(BaseMeasurement):
         spectrometer_id: str,
         ancillary: Any = None,
         no_compute: bool = False,
+        *,
+        status: ReadingStatus | None = None,
+        settings: Mapping[str, str] | None = None,
     ):
         """
         Initialize spectral measurement with computed color properties.
@@ -100,11 +115,18 @@ class SPDMeasurement(BaseMeasurement):
         no_compute : bool, optional
             If True, skip calculation of derived color properties (XYZ, CCT, etc.).
             Default is False.
+        status : ReadingStatus | None, optional
+            The device's verdict on the reading. Default is None.
+        settings : Mapping[str, str] | None, optional
+            Instrument settings the reading was taken under. The measurement
+            keeps a read-only copy. Default is none.
         """
         self.spd = spd
         self.exposure = exposure
         self.spectrometer_id = spectrometer_id
         self.anc_data = ancillary
+        self.status = status
+        self.settings = MappingProxyType(dict(settings or {}))
 
         method = "ASTM E308"
         if self.spd.shape.interval not in [1, 5, 10, 20]:
@@ -171,6 +193,8 @@ class SPDMeasurement(BaseMeasurement):
             "time",
             "cct",
             "duv",
+            "status",
+            "settings",
         ]
 
 
@@ -248,7 +272,10 @@ class SpecRadiometer(ABC):
         -------
         Measurement
             A dataclass containing various convenience calculations from python
-            colour-science and the raw SPD.
+            colour-science and the raw SPD. With ``repetitions > 1`` the
+            result averages the readings. It keeps the first reading's
+            ``settings``, and its ``status`` combines the readings (see
+            :func:`~specio.common._measurements_shared.combine_statuses`).
         """
 
         validate_repetitions(repetitions)
@@ -266,5 +293,11 @@ class SpecRadiometer(ABC):
         id = _rm[0].spectrometer_id
 
         return SPDMeasurement.FromRaw(
-            RawSPDMeasurement(spd=spd, exposure=exposure, spectrometer_id=id)
+            RawSPDMeasurement(
+                spd=spd,
+                exposure=exposure,
+                spectrometer_id=id,
+                status=combine_statuses(m.status for m in _rm),
+                settings=_rm[0].settings,
+            )
         )

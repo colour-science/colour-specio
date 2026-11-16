@@ -22,6 +22,7 @@ import numpy as np
 import serial
 from serial.tools import list_ports
 
+from specio.common import ReadingStatus
 from specio.common.colorimeters import Colorimeter, RawColorimeterMeasurement
 from specio.common.exceptions import DeviceError
 from specio.common.utility import specio_warning
@@ -538,10 +539,6 @@ class CA410(Colorimeter):
     def _write_cmd(self, cmd: Command) -> list[str]:
         """Send one command and return the fields of its reply.
 
-        Input left over from an earlier command is discarded first, so a stale
-        reply can't answer this command. A reply whose shape doesn't match the
-        command raises instead of being parsed.
-
         Parameters
         ----------
         cmd : Command
@@ -551,6 +548,40 @@ class CA410(Colorimeter):
         -------
         list[str]
             The reply fields after the response code.
+
+        Raises
+        ------
+        CA410Error
+            If the reply is missing, malformed, or carries an ``ER`` code.
+
+        See Also
+        --------
+        CA410._exchange : Also returns the response code.
+        """
+        fields, _ = self._exchange(cmd)
+        return fields
+
+    def _exchange(self, cmd: Command) -> tuple[list[str], str]:
+        """Send one command and return the fields and code of its reply.
+
+        Input left over from an earlier command is discarded first, so a stale
+        reply can't answer this command. A reply whose shape doesn't match the
+        command raises instead of being parsed.
+
+        Parameters
+        ----------
+        cmd : Command
+            The command to send.
+
+        A nonzero ``OKnn`` code sets :class:`MeasurementStatus` flags. The
+        exchange warns about them and returns the code, so a caller that
+        records the status can read it from the reply it came with.
+
+        Returns
+        -------
+        tuple[list[str], str]
+            The reply fields after the response code, and the response code,
+            for example ``"OK04"``.
 
         Raises
         ------
@@ -585,7 +616,7 @@ class CA410(Colorimeter):
         if status:
             specio_warning(f"CA-410 {code} on {cmd.text!r}: {status!r}")
 
-        return fields
+        return fields, code
 
     @property
     def serial_number(self) -> str:
@@ -712,6 +743,25 @@ class CA410(Colorimeter):
         except ValueError as e:
             raise CA410Error(f"Non-numeric CA-410 reply field {value!r}") from e
 
+    def _reading_settings(self) -> dict[str, str]:
+        """Read the stored settings that shape a measurement.
+
+        Returns
+        -------
+        dict[str, str]
+            ``measurement_speed`` and ``sync_mode`` as lowercase enum names,
+            plus ``sync_frequency_hz`` for INTERNAL mode and
+            ``sync_measurement_time_s`` (seconds) for MANUAL mode.
+        """
+        settings = {"measurement_speed": self.measurement_speed.name.lower()}
+        sync = self.sync
+        settings["sync_mode"] = sync.mode.name.lower()
+        if sync.frequency is not None:
+            settings["sync_frequency_hz"] = str(sync.frequency)
+        if sync.measurement_time is not None:
+            settings["sync_measurement_time_s"] = str(sync.measurement_time)
+        return settings
+
     def _raw_measure(self) -> RawColorimeterMeasurement:
         """Measure once and return absolute XYZ in cd/m².
 
@@ -719,10 +769,19 @@ class CA410(Colorimeter):
         the driver never changes the stored display mode. If the probe's
         luminance unit is fL, the driver converts XYZ to cd/m².
 
+        The reading records the settings it was taken under, read from the
+        probe just before ``MES,2`` (see :meth:`_reading_settings`), and the
+        status of the ``MES,2`` reply. Reading the settings costs two to three
+        extra query round trips per measurement, one each for the speed and
+        the sync mode and one more for INTERNAL or MANUAL sync. A FAST
+        measurement takes about 45 ms, so each query adds a noticeable
+        fraction to it. A settings query that fails fails the measurement.
+
         Returns
         -------
         RawColorimeterMeasurement
-            XYZ in cd/m², with :data:`UNKNOWN_EXPOSURE`.
+            XYZ in cd/m², with :data:`UNKNOWN_EXPOSURE`, the reply status and
+            the settings.
 
         Raises
         ------
@@ -730,7 +789,8 @@ class CA410(Colorimeter):
             If the reply is malformed, reports an error, or holds
             :data:`NO_VALUE` in place of X, Y or Z.
         """
-        fields = self._write_cmd(MEASURE)
+        settings = self._reading_settings()
+        fields, code = self._exchange(MEASURE)
         try:
             XYZ = np.asarray([float(v) for v in fields[XYZ_FIELDS]])
         except ValueError as e:
@@ -743,4 +803,13 @@ class CA410(Colorimeter):
             XYZ=XYZ * self._luminance_scale,
             exposure=UNKNOWN_EXPOSURE,
             device_id=self.readable_id,
+            status=self._reading_status(code),
+            settings=settings,
         )
+
+    @staticmethod
+    def _reading_status(code: str) -> ReadingStatus:
+        """Describe an ``OKnn`` reply code as a :class:`ReadingStatus`."""
+        status = MeasurementStatus(int(code.removeprefix("OK")))
+        names = tuple(flag.name for flag in status if flag.name)
+        return ReadingStatus(code=code, message=", ".join(names), flags=names)

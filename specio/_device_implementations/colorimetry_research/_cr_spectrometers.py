@@ -128,32 +128,51 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
         self._write_cmd("SM ExposureMode 0")
         self._write_cmd(f"SM Speed {speed.values[0]}")
 
-    def _apply_measurementspeed_timeout(self) -> None:
+    def _apply_measurementspeed_timeout(
+        self, speed: MeasurementSpeed, samples: int
+    ) -> None:
         """
-        Apply appropriate serial timeout based on current measurement speed and averaging.
+        Apply appropriate serial timeout based on measurement speed and averaging.
 
         Sets the serial port timeout to accommodate the expected measurement duration
         based on the measurement speed setting and number of averaged samples.
+
+        Parameters
+        ----------
+        speed : MeasurementSpeed
+            The speed the instrument measures at. The caller reads it once per
+            measurement, so sizing the window adds no serial exchange.
+        samples : int
+            The number of averaged samples the window is sized for.
         """
-        if self.measurement_speed is CRSpectrometer.MeasurementSpeed.SLOW:
+        if speed is CRSpectrometer.MeasurementSpeed.SLOW:
             t = 70
-        elif self.measurement_speed is CRSpectrometer.MeasurementSpeed.NORMAL:
+        elif speed is CRSpectrometer.MeasurementSpeed.NORMAL:
             t = 21
-        elif self.measurement_speed is CRSpectrometer.MeasurementSpeed.FAST:
+        elif speed is CRSpectrometer.MeasurementSpeed.FAST:
             t = 14
         else:
             t = 7
-        t *= self._samples_for_timeout()
+        t *= samples
         self._port.apply_settings({"timeout": t})
 
     def _raw_measure(self) -> RawSPDMeasurement:
         """
         Perform a spectral measurement and return raw spectral power distribution.
 
+        The reading records the settings it was taken under: ``exposure_mode``
+        is ``"auto"`` because the driver forces it, ``speed`` is the lowercase
+        speed name, and ``average_samples`` is the value the read window was
+        sized from. The speed and the samples are read once and reused for both
+        read windows, so recording them adds no serial exchange. If the link
+        can't report the average samples, the window and the record both use
+        the widest value (see ``_samples_for_timeout``).
+
         Returns
         -------
         RawSPDMeasurement
-            Raw measurement data containing spectral power distribution, spectrometer ID, and exposure time.
+            Raw measurement data containing spectral power distribution,
+            spectrometer ID, exposure time and settings.
 
         Raises
         ------
@@ -164,7 +183,9 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
 
         # The driver measures in auto exposure mode, where the speed applies
         self._write_cmd("SM ExposureMode 0")
-        self._apply_measurementspeed_timeout()
+        speed = self.measurement_speed
+        samples = self._samples_for_timeout()
+        self._apply_measurementspeed_timeout(speed, samples)
         response = self._write_cmd("M")
         self._port.apply_settings({"timeout": t})
 
@@ -173,7 +194,7 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
         # budget here was 0.31 s, which a dark patch outruns: auto-exposure
         # stretches the integration and the fetch waits behind it. Give it
         # the measurement's own budget rather than a constant.
-        self._apply_measurementspeed_timeout()
+        self._apply_measurementspeed_timeout(speed, samples)
         response = self._write_cmd("RM Spectrum")
         self._port.apply_settings({"timeout": t})
 
@@ -201,4 +222,9 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
             spd=SpectralDistribution(data=data, domain=shape),
             spectrometer_id=self.readable_id,
             exposure=exposure,
+            settings={
+                "exposure_mode": "auto",
+                "speed": speed.name.lower(),
+                "average_samples": str(samples),
+            },
         )
