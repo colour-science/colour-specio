@@ -316,6 +316,10 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         spectrometer_id = self.readable_id
 
         log.debug("Measuring and returning the spectrum (M5)")
+        # Hardware assumption, seen on firmware 2.51 and not confirmed on
+        # other units: M5 replies as D5 does, a header line then one line
+        # per D120 point, with nothing after the last line. Anything that
+        # does trail it is discarded by the drain before D13.
         self._write_cmd("M5", timeout=_MEASUREMENT_TIMEOUT)
         wavelengths, values = self._read_spectrum(points)
         exposure = self._last_exposure()
