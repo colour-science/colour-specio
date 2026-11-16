@@ -25,7 +25,7 @@ from specio._device_implementations.konica_minolta_ca410 import (
 from specio.common.exceptions import DeviceError
 from specio.common.utility import SpecioRuntimeWarning
 
-IDENTITY_REPLY = b"OK00,CA-410,00800,CA-VP427A       ,Ver.1.80.0002,80005086,\r"
+IDENTITY_REPLY = b"OK00,CA-410,00800,CA-VP427A       ,Ver.1.80.0002,12345678,\r"
 MEASURE_REPLY = (
     b"OK00,P1,0,0.3083380,0.3401959,0.1777124,+0.02,-99999999,"
     b"0.1610704,0.1777124,0.1835998\r"
@@ -122,9 +122,9 @@ class TestConnect:
 
         assert ca.manufacturer == "Konica-Minolta"
         assert ca.model == "CA-410 CA-VP427A"
-        assert ca.serial_number == "80005086"
+        assert ca.serial_number == "12345678"
         assert ca.firmware == "Ver.1.80.0002"
-        assert ca.readable_id == "CA-410 CA-VP427A - 80005086"
+        assert ca.readable_id == "CA-410 CA-VP427A - 12345678"
 
     def test_terminates_commands_with_carriage_return(self):
         port = make_port()
@@ -207,7 +207,7 @@ class TestMeasure:
 
         np.testing.assert_allclose(m.XYZ, [0.1610704, 0.1777124, 0.1835998])
         np.testing.assert_allclose(m.xy, [0.3083380, 0.3401959], atol=1e-6)
-        assert m.device_id == "CA-410 CA-VP427A - 80005086"
+        assert m.device_id == "CA-410 CA-VP427A - 12345678"
 
     def test_averages_repetitions(self):
         port = make_port(MES_2=[patch_reply(1), patch_reply(3)])
@@ -407,7 +407,7 @@ class TestDiscover:
             },
         )
 
-        assert CA410.discover().serial_number == "80005086"
+        assert CA410.discover().serial_number == "12345678"
         assert other.was_closed
         assert silent.was_closed
         assert not ca410.was_closed
