@@ -65,7 +65,11 @@ SPD_BYTES = bytes.fromhex(
 def fixed_colorimeter(**kwargs: object) -> ColorimeterMeasurement:
     """A colorimeter reading with fixed values and no recomputation."""
     m = ColorimeterMeasurement(
-        np.array([10.0, 20.0, 30.0]), 0.5, "FIXED-COL", no_compute=True, **kwargs  # type: ignore[arg-type]
+        np.array([10.0, 20.0, 30.0]),
+        0.5,
+        "FIXED-COL",
+        no_compute=True,
+        **kwargs,  # type: ignore[arg-type]
     )
     m.xy = np.array([0.25, 0.5])
     m.cct = 6500.0
@@ -95,7 +99,9 @@ def fixed_spd(**kwargs: object) -> SPDMeasurement:
 
 class TestByteCompatibility:
     def test_colorimeter_without_either_serializes_to_the_old_bytes(self):
-        assert colorimeter_measurement_to_bytes(fixed_colorimeter()) == COLORIMETER_BYTES
+        assert (
+            colorimeter_measurement_to_bytes(fixed_colorimeter()) == COLORIMETER_BYTES
+        )
 
     def test_spd_without_either_serializes_to_the_old_bytes(self):
         assert spd_measurement_to_bytes(fixed_spd()) == SPD_BYTES
@@ -108,9 +114,7 @@ class TestByteCompatibility:
         assert len(proto.settings) == 0
 
     def test_a_status_adds_bytes(self):
-        with_status = colorimeter_measurement_to_bytes(
-            fixed_colorimeter(status=STATUS)
-        )
+        with_status = colorimeter_measurement_to_bytes(fixed_colorimeter(status=STATUS))
         assert with_status != COLORIMETER_BYTES
         assert len(with_status) > len(COLORIMETER_BYTES)
 
@@ -147,7 +151,9 @@ class TestRoundTrip:
     def test_colorimeter(self):
         m = fixed_colorimeter(status=STATUS, settings=SETTINGS)
 
-        restored = colorimeter_measurement_from_bytes(colorimeter_measurement_to_bytes(m))
+        restored = colorimeter_measurement_from_bytes(
+            colorimeter_measurement_to_bytes(m)
+        )
 
         assert restored.status == STATUS
         assert dict(restored.settings) == SETTINGS
@@ -269,7 +275,10 @@ class TestShortname:
         def data(**kwargs: object) -> CSMF_Data:
             rows = [
                 SPDMeasurement(
-                    SpectralDistribution(scale * ramp, shape), 1.0, "fixed", **kwargs  # type: ignore[arg-type]
+                    SpectralDistribution(scale * ramp, shape),
+                    1.0,
+                    "fixed",
+                    **kwargs,  # type: ignore[arg-type]
                 )
                 for scale in (1.0, 2.0, 3.0)
             ]
@@ -279,9 +288,7 @@ class TestShortname:
                 order=np.arange(3),
             )
 
-        assert (
-            data(status=STATUS, settings=SETTINGS).shortname == data().shortname
-        )
+        assert data(status=STATUS, settings=SETTINGS).shortname == data().shortname
 
     def test_pinned_name_is_unchanged(self):
         from specio.serialization.tests.test_csmf import FIXED_SHORTNAME
@@ -309,7 +316,9 @@ def old_schema_file_class() -> type:
         if message.name == "Reading_Status":
             continue
         if message.name in new_fields:
-            kept = [f for f in message.field if f.number not in new_fields[message.name]]
+            kept = [
+                f for f in message.field if f.number not in new_fields[message.name]
+            ]
             assert len(kept) == len(message.field) - 2
             del message.field[:]
             message.field.extend(kept)
@@ -326,7 +335,12 @@ def old_schema_file_class() -> type:
 class TestOldReader:
     def test_old_schema_ignores_and_preserves_the_new_fields(self):
         OldFile = old_schema_file_class()
-        fields = {f.number for f in OldFile.DESCRIPTOR.fields_by_name["measurements"].message_type.fields}
+        fields = {
+            f.number
+            for f in OldFile.DESCRIPTOR.fields_by_name[
+                "measurements"
+            ].message_type.fields
+        }
         assert fields == {1, 2}
 
         data = CSMF_Data(
