@@ -38,6 +38,7 @@ _MAX_AVERAGE_SAMPLES = 99
 
 # Field positions in the D602 verbose setup report, counted after the
 # error code (PR-655/670 User Manual, p.148).
+_D602_EXPOSURE_MODE_FIELD = 6
 _D602_EXPOSURE_TIME_FIELD = 7
 _D602_CYCLES_FIELD = 9
 
@@ -98,10 +99,12 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         """
         Get the exposure (integration) time setting in seconds.
 
-        Reads the verbose setup report (D602). In adaptive mode the report
-        gives an exposure time of 0, so the getter returns
-        :attr:`ADAPTIVE_EXPOSURE`. The integration time that adaptive mode
-        chose for a measurement is in that measurement's ``exposure``.
+        Reads the verbose setup report (D602), whose exposure-mode field
+        reads ``Adaptive`` or ``Fixed``. In adaptive mode the getter returns
+        :attr:`ADAPTIVE_EXPOSURE`: the time field then holds the last fixed
+        exposure (or the minimum), not one in force. The integration time
+        adaptive mode chose for a measurement is in that measurement's
+        ``exposure``.
 
         Returns
         -------
@@ -119,6 +122,8 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         fields = report.split(",")
         if len(fields) <= _D602_EXPOSURE_TIME_FIELD:
             raise DeviceError(f"Malformed Photo Research setup report: {report!r}")
+        if fields[_D602_EXPOSURE_MODE_FIELD].strip().lower() == "adaptive":
+            return self.ADAPTIVE_EXPOSURE
         milliseconds = _leading_number(fields[_D602_EXPOSURE_TIME_FIELD], report)
         return milliseconds / _MS_PER_SECOND
 
