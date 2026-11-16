@@ -124,7 +124,7 @@ class SPDMeasurement(BaseMeasurement):
             self.cct: float = _cct[0]
             self.duv: float = _cct[1]
 
-            self.power: float = np.asarray(self.spd.values).sum()
+            self.power: float = float(np.asarray(self.spd.values).sum())
 
     def __str__(self) -> str:
         """

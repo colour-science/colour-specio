@@ -2,8 +2,7 @@
 Hardware device implementations for specio.
 """
 
-from . import konica_minolta
-from .colorimetry_research import colorimetry_research
+from . import colorimetry_research, konica_minolta, konica_minolta_ca410
 
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
@@ -16,4 +15,5 @@ __status__ = "Development"
 __all__ = [
     "colorimetry_research",
     "konica_minolta",
+    "konica_minolta_ca410",
 ]

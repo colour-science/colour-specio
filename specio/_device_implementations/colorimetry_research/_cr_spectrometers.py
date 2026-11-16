@@ -2,6 +2,8 @@
 Colorimetry Research spectrometer implementation.
 """
 
+from __future__ import annotations
+
 import re
 import time
 from typing import Self, final
@@ -11,7 +13,10 @@ from colour import SpectralDistribution, SpectralShape
 
 from specio.common import RawSPDMeasurement, SpecRadiometer
 
-from ._common import CRDeviceBase, InstrumentType
+from ._common import (
+    CRDeviceBase,
+    InstrumentType,
+)
 
 
 @final
@@ -41,7 +46,7 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
     @classmethod
     def discover(
         cls, expected_instrument_type: InstrumentType | None = None
-    ) -> "CRSpectrometer":
+    ) -> CRSpectrometer:
         """Attempt automatic discovery of the CR serial port and return the
         CR spectrometer object.
 
@@ -90,18 +95,20 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
 
     @property
     def measurement_speed(self) -> MeasurementSpeed:
-        """The automatic measurement speed of the hardware when in "auto" timing
+        """The measurement speed the instrument uses in auto exposure mode.
+
+        Reading it queries the instrument and changes nothing. Setting it also
+        selects auto exposure mode, because the speed applies only there.
+        The CR Protocol Manual 1.36 does not say whether the instrument keeps
+        its speed across power cycles, so constructing a
+        :class:`CRSpectrometer` sets it.
 
         Returns
         -------
         MeasurementSpeed
         """
-        response = self._write_cmd("SM ExposureMode 0")
         response = self._write_cmd("RS Speed")
-        self._measurement_speed = CRSpectrometer.MeasurementSpeed(
-            response.arguments[0].lower()
-        )
-        return self._measurement_speed
+        return CRSpectrometer.MeasurementSpeed(response.arguments[0].lower())
 
     @measurement_speed.setter
     def measurement_speed(self, speed: MeasurementSpeed) -> None:
@@ -118,8 +125,8 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
         CommandError
             If the speed setting command fails.
         """
-        _ = self._write_cmd(f"SM Speed {speed.values[0]}")
-        self._measurement_speed = speed
+        self._write_cmd("SM ExposureMode 0")
+        self._write_cmd(f"SM Speed {speed.values[0]}")
 
     def _apply_measurementspeed_timeout(self) -> None:
         """
@@ -136,7 +143,7 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
             t = 14
         else:
             t = 7
-        t *= self.average_samples
+        t *= self._samples_for_timeout()
         self._port.apply_settings({"timeout": t})
 
     def _raw_measure(self) -> RawSPDMeasurement:
@@ -155,11 +162,18 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
         """
         t = self._port.timeout
 
+        # The driver measures in auto exposure mode, where the speed applies
+        self._write_cmd("SM ExposureMode 0")
         self._apply_measurementspeed_timeout()
         response = self._write_cmd("M")
         self._port.apply_settings({"timeout": t})
 
-        self._port.apply_settings({"timeout": 0.31})
+        # The spectrum fetch follows a measurement the device has already
+        # taken, but it answers on the device's schedule, not ours. The
+        # budget here was 0.31 s, which a dark patch outruns: auto-exposure
+        # stretches the integration and the fetch waits behind it. Give it
+        # the measurement's own budget rather than a constant.
+        self._apply_measurementspeed_timeout()
         response = self._write_cmd("RM Spectrum")
         self._port.apply_settings({"timeout": t})
 

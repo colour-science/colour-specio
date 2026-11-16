@@ -3,25 +3,26 @@ Define classes and functions for controlling Konica-Minolta brand spectrometers,
 namely the CS2000.
 """
 
+from __future__ import annotations
+
 import platform
 import struct
 import time
-from collections.abc import Mapping
 from enum import Enum
 from functools import cached_property
 from textwrap import dedent
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, NamedTuple, cast, final
+from typing import TYPE_CHECKING, Any, NamedTuple, final
 
 import aenum
 import serial
 from colour import SpectralDistribution, SpectralShape
 from serial.tools import list_ports
 
-if TYPE_CHECKING:
-    from serial.tools.list_ports_common import ListPortInfo
-
 from specio.common import RawSPDMeasurement, SpecRadiometer
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
@@ -199,7 +200,7 @@ class CS2000(SpecRadiometer):
     )
 
     @classmethod
-    def discover(cls) -> "CS2000":
+    def discover(cls) -> CS2000:
         """Attempt automatic discovery of the CS2000 serial port and return the
         CS2000 object.
 
@@ -222,8 +223,6 @@ class CS2000(SpecRadiometer):
             )
 
         for p in possible_ports:
-            p = cast("ListPortInfo", p)  # Typing for `Serial` is wrong
-
             sp = serial.Serial(p.device, **cls.CS2000_SERIAL_KWARGS)
             sp.read_all()
             sp.write(b"RMTS,1\n")
@@ -346,18 +345,24 @@ class CS2000(SpecRadiometer):
 
     @property
     def syncmode(self) -> SyncSpeedSetting:
-        if hasattr(self, "_sync_speed_setting"):
-            return self._sync_speed_setting
+        """The synchronization mode stored in the instrument.
 
+        The CS-2000 stores its measurement conditions in flash memory, so this
+        setting survives power cycles (communication specification, section
+        1.7). Reading it queries the instrument, and setting it writes to
+        flash, which tolerates a limited number of writes.
+
+        Returns
+        -------
+        SyncSpeedSetting
+        """
         _, data = self._write_cmd("SCMR")
         mode = SyncMode(data[0])
         frequency = float(data[1]) / 100 if mode is SyncMode.INTERNAL else None
-        self._sync_speed_setting = SyncSpeedSetting(mode, frequency)
-
-        return self._sync_speed_setting
+        return SyncSpeedSetting(mode, frequency)
 
     @syncmode.setter
-    def syncmode(self, new_mode: SyncSpeedSetting):
+    def syncmode(self, new_mode: SyncSpeedSetting) -> None:
         update_cmd_str = bytearray(b"SCMS," + new_mode.mode)
         if new_mode.mode is SyncMode.INTERNAL:
             if (
@@ -371,19 +376,25 @@ class CS2000(SpecRadiometer):
 
             update_cmd_str += b"," + f"{round(new_mode.frequency * 100):.0f}".encode()
 
-        del self._sync_speed_setting
         self._write_cmd(bytes(update_cmd_str))
 
     @property
-    def speedmode(self):
-        if hasattr(self, "_cur_sms"):
-            return self._cur_sms
-        cr = self._write_cmd(b"SPMR")
-        self._cur_sms = SpeedModeSetting.from_command_response(cr)
-        return self._cur_sms
+    def speedmode(self) -> SpeedModeSetting:
+        """The speed mode stored in the instrument.
+
+        The CS-2000 stores its measurement conditions in flash memory, so this
+        setting survives power cycles (communication specification, section
+        1.7). Reading it queries the instrument, and setting it writes to
+        flash, which tolerates a limited number of writes.
+
+        Returns
+        -------
+        SpeedModeSetting
+        """
+        return SpeedModeSetting.from_command_response(self._write_cmd(b"SPMR"))
 
     @speedmode.setter
-    def speedmode(self, cr: SpeedModeSetting):
+    def speedmode(self, cr: SpeedModeSetting) -> None:
         _, _ = self._write_cmd(b"SPMS," + bytes(cr))
 
     def _raw_measure(self) -> RawSPDMeasurement:

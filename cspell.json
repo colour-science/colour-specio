@@ -58,6 +58,7 @@
     "colour",
     "numpy",
     "protoc",
+    "rtol",
     "baudrate",
     "bytesize",
     "rtscts",
@@ -77,6 +78,7 @@
     "ASTM",
     "loggable",
     "vspr",
+    "vcol",
     "tjdcs",
     "CSFM",
     "msecs",
@@ -104,7 +106,8 @@
     "norecursedirs",
     "Dunder",
     "typings",
-    "allclose"
+    "allclose",
+    "scipy"
   ],
   "ignorePaths": [
     "**/node_modules/**",

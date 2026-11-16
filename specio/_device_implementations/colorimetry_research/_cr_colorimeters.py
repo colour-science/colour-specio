@@ -2,6 +2,8 @@
 Colorimetry Research colorimeter implementation.
 """
 
+from __future__ import annotations
+
 import re
 from typing import Self, final
 
@@ -12,7 +14,10 @@ from aenum import MultiValueEnum
 from specio.common.colorimeters import Colorimeter, RawColorimeterMeasurement
 from specio.common.utility import specio_warning
 
-from ._common import CRDeviceBase, InstrumentType
+from ._common import (
+    CRDeviceBase,
+    InstrumentType,
+)
 
 
 @final
@@ -43,7 +48,7 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
     @classmethod
     def discover(
         cls, expected_instrument_type: InstrumentType | None = None
-    ) -> "CRColorimeter":
+    ) -> CRColorimeter:
         """Attempt automatic discovery of the CR serial port and return the
         CR colorimeter object.
 
@@ -257,7 +262,8 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         """
         t = self._port.timeout
 
-        self._port.apply_settings({"timeout": 10 + 0.5 * self.average_samples})
+        samples = self._samples_for_timeout()
+        self._port.apply_settings({"timeout": 10 + 0.5 * samples})
         response = self._write_cmd("M")
 
         self._port.apply_settings({"timeout": 0.21})
