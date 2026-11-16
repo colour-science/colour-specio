@@ -16,7 +16,7 @@ from colour import SpectralDistribution
 from specio.common import RawSPDMeasurement, SpecRadiometer
 from specio.common.exceptions import DeviceError
 
-from ._common import PRDeviceBase
+from ._common import PRDeviceBase, PRIncompleteReplyError
 
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
@@ -231,16 +231,22 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
 
         Raises
         ------
+        PRIncompleteReplyError
+            If fewer lines arrive than expected.
         DeviceError
-            If fewer lines arrive than expected, or a line is malformed.
+            If a line is malformed.
         """
         wavelengths: list[float] = []
         values: list[float] = []
         with self._port_timeout(_DATA_LINE_TIMEOUT):
             for index in range(points):
-                line = self._read_response()
-                if not line:
-                    raise DeviceError(f"D5 returned {index} of {points} spectral lines")
+                try:
+                    line = self._read_response()
+                except PRIncompleteReplyError as error:
+                    raise PRIncompleteReplyError(
+                        f"D5 returned {index} of {points} spectral lines",
+                        error.received,
+                    ) from error
                 try:
                     wavelength, value = (float(part) for part in line.split(","))
                 except ValueError as error:

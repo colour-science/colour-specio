@@ -41,6 +41,7 @@ __all__ = [
     "PRCommandError",
     "PRCommandResponse",
     "PRDeviceBase",
+    "PRIncompleteReplyError",
     "PRResponseCode",
 ]
 
@@ -48,11 +49,16 @@ _COMMAND_DELAY = 0.05
 _CHAR_WRITE_DELAY = 0.01
 _DEFAULT_SERIAL_TIMEOUT = 5.0
 _REMOTE_MODE_TIMEOUT = 10.0
-_CODE_PATTERN = re.compile(r"[+-]?\d+")
+# A reply line is a five-character code, ``00000`` or a minus sign and four
+# digits such as ``-0008``, then optionally a comma and data (PR-655/670 User
+# Manual, p.140). The fixed width keeps a three-digit wavelength in a D5 data
+# line, such as ``424,1.999e-04``, from passing for a code.
+_REPLY_PATTERN = re.compile(r"(?P<code>\d{5}|-\d{4})(?:,(?P<data>.*))?")
 _REMOTE_MODE_COMMAND = "PHOTO"
 _REMOTE_MODE_REPLY = b"REMOTE MODE"
 _QUIT_COMMAND = "Q"
 _COMMAND_TERMINATOR = "\r"
+_REPLY_TERMINATOR = b"\r\n"
 _PHOTO_RESEARCH_NAMES = ("photo research", "photoresearch")
 # USB vendor IDs of other instrument makers, from the linux-usb.org usb.ids
 # list. Discovery never opens these ports.
@@ -177,6 +183,31 @@ class PRCommandError(DeviceError):
             f"data={response.raw_data!r}",
             *args,
         )
+
+
+class PRIncompleteReplyError(DeviceError):
+    """
+    Describes a reply that was lost, cut short or not a reply at all.
+
+    Raised when a read times out before the CR LF that ends every reply
+    line, or when a line that should start with a reply code does not. The
+    device chose no code, so unlike :class:`PRCommandError` this error
+    carries only the bytes that did arrive.
+    """
+
+    def __init__(self, message: str, received: bytes) -> None:
+        """
+        Initialize the error with what arrived.
+
+        Parameters
+        ----------
+        message : str
+            What the driver expected and did not get.
+        received : bytes
+            The bytes read, including any terminator.
+        """
+        self.received = received
+        super().__init__(f"{message}: {received!r}")
 
 
 def _names_photo_research(text: str | None) -> bool:
@@ -387,7 +418,11 @@ class PRDeviceBase(ABC):
 
     def _read_response(self, timeout: float | None = None) -> str:
         """
-        Read a response line from the device with configurable timeout.
+        Read one CR LF terminated line from the device.
+
+        A line is complete only when its terminator arrives. Whatever
+        arrives before a timeout without one is a lost or cut reply, and its
+        bytes are reported rather than parsed.
 
         Parameters
         ----------
@@ -397,12 +432,19 @@ class PRDeviceBase(ABC):
         Returns
         -------
         str
-            The decoded response string with whitespace stripped.
+            The decoded line without its terminator.
+
+        Raises
+        ------
+        PRIncompleteReplyError
+            If the read times out before the terminator arrives.
         """
         with self._port_timeout(timeout):
-            response = self._port.readline()
+            raw = self._port.read_until(_REPLY_TERMINATOR)
 
-        return response.decode("ascii", errors="replace").strip()
+        if not raw.endswith(_REPLY_TERMINATOR):
+            raise PRIncompleteReplyError("Photo Research reply timed out", raw)
+        return raw[: -len(_REPLY_TERMINATOR)].decode("ascii", errors="replace")
 
     def _write_cmd(
         self, command: str, timeout: float | None = None
@@ -431,8 +473,8 @@ class PRDeviceBase(ABC):
         ------
         PRCommandError
             If the device returns a non-OK response code.
-        DeviceError
-            If the response is missing or has no numeric code.
+        PRIncompleteReplyError
+            If the reply is missing, cut short or has no reply code.
         """
         log = logging.getLogger("specio.PR")
         log.debug("Sending CMD: %s", command)
@@ -460,16 +502,15 @@ class PRDeviceBase(ABC):
 
     def _parse_response(self, raw: str) -> PRCommandResponse:
         """
-        Parse a raw response string into a structured command response.
+        Parse a reply line into a structured command response.
 
-        A response is a signed error code, then optionally a comma and the
-        data payload (e.g., ``"00000,PR-655"`` or ``"-1000"``). The whole
-        code field is the error code.
+        A reply is the five-character code, then optionally a comma and the
+        data payload (e.g., ``"00000,PR-655"`` or ``"-1000"``).
 
         Parameters
         ----------
         raw : str
-            Raw response string from the device.
+            A reply line without its terminator.
 
         Returns
         -------
@@ -478,16 +519,19 @@ class PRDeviceBase(ABC):
 
         Raises
         ------
-        DeviceError
-            If the response is empty or does not start with a numeric code.
+        PRIncompleteReplyError
+            If the line does not start with a reply code. Such a line is
+            likely part of another reply, so no code is invented for it.
         """
-        code_field, _, data = raw.strip().partition(",")
-        code_field = code_field.strip()
-        if not _CODE_PATTERN.fullmatch(code_field):
-            raise DeviceError(f"Malformed Photo Research response: {raw!r}")
+        match = _REPLY_PATTERN.fullmatch(raw)
+        if match is None:
+            raise PRIncompleteReplyError(
+                "Expected a Photo Research reply code", raw.encode("ascii", "replace")
+            )
 
         return PRCommandResponse(
-            code=PRResponseCode(int(code_field)), raw_data=data.strip()
+            code=PRResponseCode(int(match["code"])),
+            raw_data=(match["data"] or "").strip(),
         )
 
     @classmethod

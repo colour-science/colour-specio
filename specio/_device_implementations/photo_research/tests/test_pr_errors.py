@@ -75,7 +75,6 @@ class TestCommandErrors:
         ("reply", "expected"),
         [
             (b"-0008\r\n", PRResponseCode.WEAK_LIGHT),
-            (b"-8\r\n", PRResponseCode.WEAK_LIGHT),
             (b"-0001\r\n", PRResponseCode.LIGHT_SOURCE_NOT_CONSTANT),
             (b"-0010\r\n", PRResponseCode.CANNOT_AUTO_SYNC),
             (b"-1000\r\n", PRResponseCode.ILLEGAL_COMMAND),
@@ -85,7 +84,7 @@ class TestCommandErrors:
     def test_negative_code_raises(
         self, open_pr: OpenPR, reply: bytes, expected: PRResponseCode
     ) -> None:
-        """Negative codes are errors, whatever their padding."""
+        """Negative codes are errors."""
         pr, _ = open_pr({"D111": reply})
         with pytest.raises(PRCommandError) as info:
             _ = pr.model

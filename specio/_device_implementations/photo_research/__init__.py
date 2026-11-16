@@ -2,7 +2,13 @@
 Photo Research device implementations.
 """
 
-from ._common import PRCommandError, PRCommandResponse, PRDeviceBase, PRResponseCode
+from ._common import (
+    PRCommandError,
+    PRCommandResponse,
+    PRDeviceBase,
+    PRIncompleteReplyError,
+    PRResponseCode,
+)
 from ._pr_spectrometers import PRSpectrometer
 
 __version__ = "0.4.1.post0"
@@ -17,6 +23,7 @@ __all__ = [
     "PRCommandError",
     "PRCommandResponse",
     "PRDeviceBase",
+    "PRIncompleteReplyError",
     "PRResponseCode",
     "PRSpectrometer",
 ]
