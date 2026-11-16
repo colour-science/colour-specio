@@ -155,10 +155,15 @@ class TestSpectrumRecovery:
             (_JUST_AFTER_LINE_TIMEOUT + index * _TRAIL, line)
             for index, line in enumerate(lines[received:])
         ]
-        pr, port = open_pr({"D5": Reply((0.0, b"".join(lines[:received])), *late)})
+        pr, port = open_pr(
+            {
+                "D5": Reply((0.0, b"".join(lines[:received])), *late),
+                "D110": f"00000,{_SERIAL}\r\n".encode(),
+            }
+        )
 
         with pytest.raises(PRIncompleteReplyError, match="spectral lines"):
             pr.measure()
 
         self._assert_line_is_clean(port)
-        assert pr.serial_number == "67065106"
+        assert pr.serial_number == _SERIAL
