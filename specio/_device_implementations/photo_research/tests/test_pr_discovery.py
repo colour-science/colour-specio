@@ -178,6 +178,31 @@ class TestCandidatePorts:
 
         assert factory.opened == ["COM4"]
 
+    def test_windows_built_in_driver_is_found_by_vid(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Windows' own USB serial driver names neither the maker nor the
+        instrument: a bench PR-655 reported manufacturer "Microsoft" and
+        description "USB Serial Device (COM7)". Its VID still says who it is.
+        """
+        factory = _install(
+            monkeypatch,
+            "Windows",
+            [
+                _port_info(
+                    "COM3", 0x046B, 0xFFB0, "Microsoft", "USB Serial Device (COM3)"
+                ),
+                _port_info(
+                    "COM7", 0x180B, 0x0524, "Microsoft", "USB Serial Device (COM7)"
+                ),
+            ],
+            {"COM7": FakePRPort()},
+        )
+
+        PRSpectrometer.discover()
+
+        assert factory.opened == ["COM7"]
+
 
 class TestFailures:
     """Failed candidates are closed, and only expected errors are skipped."""

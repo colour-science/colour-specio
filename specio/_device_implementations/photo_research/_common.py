@@ -72,6 +72,11 @@ _PHOTO_RESEARCH_NAMES = ("photo research", "photoresearch")
 # USB vendor IDs of other instrument makers, from the linux-usb.org usb.ids
 # list. Discovery never opens these ports.
 _OTHER_VENDOR_VIDS: Mapping[int, str] = MappingProxyType({0x132B: "Konica Minolta"})
+# Photo Research's own USB vendor ID, as a PR-655 enumerates (180B:0524).
+# On Windows' built-in USB serial driver the port's manufacturer reads
+# "Microsoft" and its description "USB Serial Device", so the VID is the
+# only thing that names the instrument.
+_PHOTO_RESEARCH_VIDS = frozenset({0x180B})
 # Device-name fragments of USB serial ports on each platform. The PR-655's
 # USB CDC interface appears as usbmodem on macOS and ttyACM on Linux; the
 # others cover USB-to-serial adapters. Windows ports are COM<n>, so there a
@@ -241,9 +246,9 @@ def _is_candidate_port(port: ListPortInfo, system: str) -> bool:
     """
     Decide from USB metadata alone whether discovery may open a port.
 
-    A port that names Photo Research is a candidate. A port whose VID
-    belongs to another instrument vendor, or whose manufacturer string names
-    anyone else, is not. Any other port is a candidate when its device name
+    A port that names Photo Research, or carries its USB vendor ID, is a
+    candidate. A port whose VID belongs to another instrument vendor, or
+    whose manufacturer string names anyone else, is not. Any other port is a candidate when its device name
     matches the platform's USB serial naming.
 
     Parameters
@@ -258,7 +263,7 @@ def _is_candidate_port(port: ListPortInfo, system: str) -> bool:
     bool
         True if discovery may open the port and send the handshake.
     """
-    if any(
+    if port.vid in _PHOTO_RESEARCH_VIDS or any(
         _names_photo_research(text)
         for text in (port.manufacturer, port.product, port.description)
     ):
