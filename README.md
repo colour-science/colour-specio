@@ -16,7 +16,7 @@ The distribution is `colour-specio`, and the package imports as `specio`.
 | --- | --- | --- |
 | Colorimetry Research CR-250, CR-300 | Spectroradiometer | `specio.spectrometers.CRSpectrometer` |
 | Colorimetry Research CR-120 | Colorimeter | `specio.colorimeters.CRColorimeter` |
-| Konica Minolta CS-2000 | Spectroradiometer | `specio.konica_minolta.CS2000` |
+| Konica Minolta CS-2000 | Spectroradiometer | `specio.spectrometers.CS2000` |
 | Konica Minolta CA-410 | Display colour analyzer | `specio.colorimeters.CA410` |
 | Virtual spectroradiometer | Semi-random spectral distributions | `specio.spectrometers.VirtualSpectrometer` |
 | Virtual colorimeter | Semi-random XYZ | `specio.colorimeters.VirtualColorimeter` |
@@ -47,6 +47,12 @@ measurement = spectrometer.measure()
 
 print(measurement.XYZ, measurement.xy, measurement.cct)
 ```
+
+An instrument that can't complete an exchange, or refuses a measurement,
+raises a subclass of `specio.common.exceptions.DeviceError`, so one `except`
+clause covers every instrument. A Colorimetry Research instrument raises
+`specio.colorimetry_research.MeasurementOutOfRange` when the light is outside
+what it can measure, such as a patch too dark for it.
 
 `measure(repetitions=3)` averages several readings into one. The
 [examples](examples) folder has a script for the CR-300, the CR-120, the
