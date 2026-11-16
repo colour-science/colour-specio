@@ -114,7 +114,7 @@ def default_replies() -> dict[str, ScriptedReply | list[ScriptedReply]]:
         "D110": b"00000,10000001\r\n",
         "D111": b"00000,PR-655\r\n",
         "D120": f"00000,{points},0.00,{start},{end},{step},256,7,247\r\n".encode(),
-        "M0": b"00000\r\n",
+        "M5": d5_reply([float(i) for i in range(points)]),
         "D5": d5_reply([float(i) for i in range(points)]),
         "D13": b"00000,Normal,250 msec\r\n",
         "D602": (

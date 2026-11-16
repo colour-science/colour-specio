@@ -108,8 +108,8 @@ class TestCommandErrors:
         assert info.value.response.code is PRResponseCode.INVALID_AVERAGE_CYCLES
 
     def test_measurement_error_raises(self, open_pr: OpenPR) -> None:
-        """A measurement error code from M0 raises before any data is read."""
-        pr, port = open_pr({"M0": b"-0008\r\n"})
+        """A measurement error code from M5 raises before any data is read."""
+        pr, port = open_pr({"M5": b"-0008\r\n"})
         with pytest.raises(PRCommandError) as info:
             pr.measure()
         assert info.value.response.code is PRResponseCode.WEAK_LIGHT

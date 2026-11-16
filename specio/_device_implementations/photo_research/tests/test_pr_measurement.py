@@ -60,7 +60,7 @@ class TestSpectrum:
     def test_header_is_not_parsed_as_data(self, open_pr: OpenPR) -> None:
         """Each value lands on its own wavelength, 380 nm through 780 nm."""
         values = np.linspace(1.0, 2.0, PR655_POINTS)
-        pr, _ = open_pr({"D5": d5_reply(values)})
+        pr, _ = open_pr({"M5": d5_reply(values)})
 
         spd = pr.measure().spd
 
@@ -76,7 +76,7 @@ class TestSpectrum:
             {
                 "D111": b"00000,PR-670\r\n",
                 "D120": _d120(PR670_POINTS, PR670_SHAPE),
-                "D5": d5_reply(values, shape=PR670_SHAPE),
+                "M5": d5_reply(values, shape=PR670_SHAPE),
             }
         )
 
@@ -99,7 +99,7 @@ class TestSpectrum:
         received = 50
         lines = d5_reply(np.ones(PR655_POINTS)).splitlines(keepends=True)
         header_and_received = lines[: 1 + received]
-        pr, _ = open_pr({"D5": b"".join(header_and_received)})
+        pr, _ = open_pr({"M5": b"".join(header_and_received)})
 
         with pytest.raises(DeviceError, match=f"{received} of {PR655_POINTS}"):
             pr.measure()
@@ -108,14 +108,14 @@ class TestSpectrum:
         """A data line that is not ``wl,value`` is a driver error."""
         lines = d5_reply(np.ones(PR655_POINTS)).splitlines(keepends=True)
         lines[10] = b"garbage\r\n"
-        pr, _ = open_pr({"D5": b"".join(lines)})
+        pr, _ = open_pr({"M5": b"".join(lines)})
 
         with pytest.raises(DeviceError, match="garbage"):
             pr.measure()
 
     def test_header_error_code_raises(self, open_pr: OpenPR) -> None:
-        """The D5 header's code is an error code."""
-        pr, _ = open_pr({"D5": d5_reply(np.ones(PR655_POINTS), code="-0008")})
+        """The M5 header's code is an error code."""
+        pr, _ = open_pr({"M5": d5_reply(np.ones(PR655_POINTS), code="-0008")})
 
         with pytest.raises(PRCommandError) as info:
             pr.measure()
@@ -124,7 +124,7 @@ class TestSpectrum:
     def test_commands_go_through_write_cmd(
         self, open_pr: OpenPR, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """M0, D5 and D13 use the shared command path."""
+        """M5 and D13 use the shared command path."""
         pr, _ = open_pr()
         sent: list[str] = []
         write_cmd = pr._write_cmd
@@ -136,7 +136,7 @@ class TestSpectrum:
         monkeypatch.setattr(pr, "_write_cmd", spy)
         pr.measure()
 
-        assert {"M0", "D5", "D13"} <= set(sent)
+        assert {"M5", "D13"} <= set(sent)
 
 
 class TestTimeouts:
@@ -154,8 +154,8 @@ class TestTimeouts:
     @pytest.mark.parametrize(
         "replies",
         [
-            {"M0": b"-0008\r\n"},
-            {"D5": b"00000,0,5.560e+02,1.827e-01,5.147e+01\r\n380,1.0\r\n"},
+            {"M5": b"-0008\r\n"},
+            {"M5": b"00000,0,5.560e+02,1.827e-01,5.147e+01\r\n380,1.0\r\n"},
         ],
     )
     def test_restored_after_error(

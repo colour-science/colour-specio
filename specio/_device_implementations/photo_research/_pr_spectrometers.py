@@ -290,10 +290,13 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         """
         Perform a spectral measurement and return raw spectral data.
 
-        Triggers a measurement (M0), then retrieves the spectrum (D5). D5
-        returns a header line, then one ``wavelength,value`` line per
-        spectral point. The spectral domain comes from those wavelengths,
-        and D13 supplies the exposure time the measurement used.
+        Triggers a measurement that returns its spectrum (M5): a header
+        line, then one ``wavelength,value`` line per spectral point. M0
+        followed by D5 is not used: a PR-655 on firmware 2.51 streams the
+        whole spectrum in reply to M0 as well, and the D5 sent after it
+        collides with that stream. The spectral domain comes from those
+        wavelengths, and D13 supplies the exposure time the measurement
+        used.
 
         Returns
         -------
@@ -312,14 +315,8 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         points = self._spectral_points
         spectrometer_id = self.readable_id
 
-        log.debug("Triggering spectral measurement (M0)")
-        self._write_cmd("M0", timeout=_MEASUREMENT_TIMEOUT)
-
-        # Some firmware may stream the spectrum after the M0 code. The drain
-        # before D5 discards that stream, so D5 reads its own header and
-        # spectrum either way.
-        log.debug("Retrieving spectral data (D5)")
-        self._write_cmd("D5")
+        log.debug("Measuring and returning the spectrum (M5)")
+        self._write_cmd("M5", timeout=_MEASUREMENT_TIMEOUT)
         wavelengths, values = self._read_spectrum(points)
         exposure = self._last_exposure()
 
