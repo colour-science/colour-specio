@@ -12,6 +12,7 @@ from aenum import MultiValueEnum
 from colour import SpectralDistribution, SpectralShape
 
 from specio.common import RawSPDMeasurement, SpecRadiometer
+from specio.common.exceptions import DeviceError
 
 from ._common import (
     CRDeviceBase,
@@ -173,6 +174,9 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
         # budget here was 0.31 s, which a dark patch outruns: auto-exposure
         # stretches the integration and the fetch waits behind it. Give it
         # the measurement's own budget rather than a constant.
+        # Read before the spectrum: asked while its lines are arriving, the
+        # model query would take one of them as its answer. It is cached.
+        model = self.model
         self._apply_measurementspeed_timeout()
         response = self._write_cmd("RM Spectrum")
         self._port.apply_settings({"timeout": t})
@@ -184,10 +188,19 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
                 end=float(args[1]),
                 interval=float(args[2]),
             )
-        elif self.model == "CR-300":
+        elif model == "CR-300":
             shape = SpectralShape(380, 780, 1)
-        elif self.model == "CR-250":
+        elif model == "CR-250":
             shape = SpectralShape(380, 780, 4)
+        else:
+            # The spectrum's lines are still arriving; drain them, or they
+            # answer the next command.
+            self.resync()
+            raise DeviceError(
+                f"The {model} reported no spectral range "
+                f"({response.arguments[0]!r}), and the driver has no default "
+                "range for it"
+            )
 
         time.sleep(0.01)
         data = [self._port.readline() for _ in range(len(shape.wavelengths))]
