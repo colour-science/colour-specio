@@ -13,7 +13,10 @@ from colour import SpectralDistribution, SpectralShape
 
 from specio.common import RawSPDMeasurement, SpecRadiometer
 
-from ._common import CRDeviceBase, InstrumentType
+from ._common import (
+    CRDeviceBase,
+    InstrumentType,
+)
 
 
 @final
@@ -140,7 +143,7 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
             t = 14
         else:
             t = 7
-        t *= self.average_samples
+        t *= self._samples_for_timeout()
         self._port.apply_settings({"timeout": t})
 
     def _raw_measure(self) -> RawSPDMeasurement:
@@ -165,7 +168,12 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
         response = self._write_cmd("M")
         self._port.apply_settings({"timeout": t})
 
-        self._port.apply_settings({"timeout": 0.31})
+        # The spectrum fetch follows a measurement the device has already
+        # taken, but it answers on the device's schedule, not ours. The
+        # budget here was 0.31 s, which a dark patch outruns: auto-exposure
+        # stretches the integration and the fetch waits behind it. Give it
+        # the measurement's own budget rather than a constant.
+        self._apply_measurementspeed_timeout()
         response = self._write_cmd("RM Spectrum")
         self._port.apply_settings({"timeout": t})
 
