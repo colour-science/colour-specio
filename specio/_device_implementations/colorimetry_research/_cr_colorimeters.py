@@ -22,7 +22,7 @@ from ._common import (
 
 @final
 class CRColorimeter(CRDeviceBase, Colorimeter):
-    """Interface with a colorimetry research brand CR-250 or CR-300 in colorimeter mode.
+    """Interface with a Colorimetry Research colorimeter, such as the CR-100 or CR-120.
 
     Implements the `specio.colorimeters.Colorimeter` interface for direct XYZ measurements.
 
@@ -93,18 +93,17 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
 
     @property
     def measurement_speed(self) -> MeasurementSpeed:
-        """The automatic measurement speed of the hardware when in "auto" timing
+        """The measurement speed the instrument uses in auto exposure mode.
+
+        Reading it queries the instrument and changes nothing. Setting it also
+        selects auto exposure mode, because the speed applies only there.
 
         Returns
         -------
         MeasurementSpeed
         """
-        response = self._write_cmd("SM ExposureMode 0")
         response = self._write_cmd("RS Speed")
-        self._measurement_speed = CRColorimeter.MeasurementSpeed(
-            response.arguments[0].lower()
-        )
-        return self._measurement_speed
+        return CRColorimeter.MeasurementSpeed(response.arguments[0].lower())
 
     @measurement_speed.setter
     def measurement_speed(self, speed: MeasurementSpeed) -> None:
@@ -121,8 +120,8 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         CommandError
             If the speed setting command fails.
         """
-        _ = self._write_cmd(f"SM Speed {speed.values[0]}")
-        self._measurement_speed = speed
+        self._write_cmd("SM ExposureMode 0")
+        self._write_cmd(f"SM Speed {speed.values[0]}")
 
     @property
     def available_filters(self) -> bidict.bidict[int, str]:
@@ -142,16 +141,21 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         """
         if not hasattr(self, "_available_filters"):
             response = self._write_cmd("RC Filter")
+            rows = [
+                (arg.decode() if isinstance(arg, bytes) else arg).strip()
+                for arg in response.arguments
+            ]
+            # The header line ends in the row count. The parser reads the rows
+            # only if they are already waiting, so a slow reply leaves the bare
+            # count here; read that many rows now. A device with no filters,
+            # such as a CR-100, reports a count of 0 and no rows.
+            if len(rows) == 1 and rows[0].isdigit():
+                count = int(rows[0])
+                rows = [self._port.readline().decode().strip() for _ in range(count)]
             filters = bidict.bidict()
-            for arg in response.arguments:
-                arg = arg.decode() if isinstance(arg, bytes) else arg
-                arg = arg.strip()
-                # A device with no filters configured reports just the count
-                # (e.g. "0") on the header line instead of any filter rows.
-                if "," not in arg:
-                    continue
-                items = arg.split(",")
-                filters[int(items[0])] = items[1]
+            for row in rows:
+                index, name = row.split(",", 1)
+                filters[int(index)] = name
             filters[0] = "None"
             self._available_filters = filters
         return self._available_filters
