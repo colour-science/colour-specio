@@ -184,7 +184,9 @@ class TestFailures:
 
     def test_failed_handshake_is_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """A port that fails the handshake is closed before the next is tried."""
-        silent = FakePRPort(handshake=b"")
+        # Silent to PHOTO and to the model request that follows: not a
+        # device at all, rather than one already in remote mode.
+        silent = FakePRPort({"D111": b""}, handshake=b"")
         good_path = "/dev/cu.usbmodem3301"
         _install(
             monkeypatch,
