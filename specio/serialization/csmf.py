@@ -1,14 +1,15 @@
-from collections.abc import Iterable
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import xxhash
 from colour.colorimetry.spectrum import MultiSpectralDistributions
-from colour.hints import NDArray
 from numpy import ndarray
 
-from specio.common import ColorimeterMeasurement, SPDMeasurement
+from specio.common import ColorimeterMeasurement
 from specio.serialization.measurements import (
     colorimeter_measurement_from_bytes,
     colorimeter_measurement_to_proto,
@@ -16,6 +17,11 @@ from specio.serialization.measurements import (
     spd_measurement_to_proto,
 )
 from specio.serialization.protobuf import measurements_pb2
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from colour.hints import NDArray
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
@@ -76,9 +82,7 @@ class CSMF_Data:
 
     test_colors: ndarray
     order: Iterable[int]
-    measurements: NDArray = field(
-        default_factory=lambda: np.empty_like(prototype=SPDMeasurement)
-    )
+    measurements: NDArray = field(default_factory=lambda: np.array([], dtype=object))
     metadata: CSMF_Metadata = field(default_factory=CSMF_Metadata)
     ancillary: bytes = b""
 

@@ -2,6 +2,8 @@
 Colorimetry Research spectrometer implementation.
 """
 
+from __future__ import annotations
+
 import re
 import time
 from typing import Self, final
@@ -41,7 +43,7 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
     @classmethod
     def discover(
         cls, expected_instrument_type: InstrumentType | None = None
-    ) -> "CRSpectrometer":
+    ) -> CRSpectrometer:
         """Attempt automatic discovery of the CR serial port and return the
         CR spectrometer object.
 

@@ -106,7 +106,8 @@
     "norecursedirs",
     "Dunder",
     "typings",
-    "allclose"
+    "allclose",
+    "scipy"
   ],
   "ignorePaths": [
     "**/node_modules/**",

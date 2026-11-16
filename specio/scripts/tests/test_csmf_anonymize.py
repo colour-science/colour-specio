@@ -1,4 +1,6 @@
-from pathlib import Path
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pytest
@@ -14,6 +16,9 @@ from specio.serialization.csmf import (
     load_csmf_file,
     save_csmf_file,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 HYBRID_ROWS = 5
 """Row count of the hybrid fixture, alternating spectral and colorimetric."""
