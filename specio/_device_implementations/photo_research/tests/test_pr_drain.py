@@ -36,7 +36,7 @@ if TYPE_CHECKING:
 
 # Just past the driver's 5 s default reply timeout.
 _JUST_AFTER_TIMEOUT = 5.01
-# Just past the driver's 2 s timeout for each D5 data line.
+# Just past the driver's 2 s timeout for each spectral data line.
 _JUST_AFTER_LINE_TIMEOUT = 2.01
 # A device's processing time before it answers.
 _LATENCY = 0.02
@@ -98,20 +98,20 @@ class TestDrainBeforeWrite:
             for record in caplog.records
         )
 
-    def test_spectrum_streamed_after_m0(self, open_pr: OpenPR) -> None:
-        """A spectrum that streams after M0 is not read as the D5 reply."""
+    def test_line_trailing_the_spectrum(self, open_pr: OpenPR) -> None:
+        """A stale line after the M5 spectrum is not read as the D13 reply."""
         values = np.linspace(1.0, 2.0, _PR655_POINTS)
-        stale = d5_reply(np.zeros(_PR655_POINTS))
         pr, _ = open_pr(
             {
-                "M0": Reply((0.0, b"00000\r\n"), (_TRAIL, stale)),
-                "D5": Reply((_LATENCY, d5_reply(values))),
+                "M5": Reply((0.0, d5_reply(values)), (_TRAIL, _STALE_LINE)),
+                "D13": Reply((_LATENCY, b"00000,Normal,250 msec\r\n")),
             }
         )
 
-        spd = pr.measure().spd
+        measurement = pr.measure()
 
-        np.testing.assert_allclose(spd.values, values, rtol=1e-3)
+        np.testing.assert_allclose(measurement.spd.values, values, rtol=1e-3)
+        assert measurement.exposure == pytest.approx(0.25)
 
     def test_drain_is_bounded(self, open_pr: OpenPR) -> None:
         """A port that never falls quiet stops the drain at its time limit."""
@@ -139,7 +139,7 @@ class TestSpectrumRecovery:
         """The lines after a malformed one are drained before the error."""
         lines = d5_reply(np.ones(_PR655_POINTS)).splitlines(keepends=True)
         lines[10] = b"garbage\r\n"
-        pr, port = open_pr({"D5": b"".join(lines)})
+        pr, port = open_pr({"M5": b"".join(lines)})
 
         with pytest.raises(DeviceError, match="garbage"):
             pr.measure()
@@ -157,7 +157,7 @@ class TestSpectrumRecovery:
         ]
         pr, port = open_pr(
             {
-                "D5": Reply((0.0, b"".join(lines[:received])), *late),
+                "M5": Reply((0.0, b"".join(lines[:received])), *late),
                 "D110": f"00000,{_SERIAL}\r\n".encode(),
             }
         )

@@ -202,7 +202,7 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         Returns
         -------
         int
-            Number of ``wl,value`` lines that D5 returns.
+            Number of ``wl,value`` lines that M5 returns.
 
         Raises
         ------
@@ -217,7 +217,7 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
 
     def _read_spectrum(self, points: int) -> tuple[list[float], list[float]]:
         """
-        Read the ``wl,value`` lines that follow a D5 header.
+        Read the ``wl,value`` lines that follow an M5 header.
 
         If a line is missing or malformed, the remaining input is drained
         before the error is raised.
@@ -248,14 +248,14 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
                         line = self._read_response()
                     except PRIncompleteReplyError as error:
                         raise PRIncompleteReplyError(
-                            f"D5 returned {index} of {points} spectral lines",
+                            f"M5 returned {index} of {points} spectral lines",
                             error.received,
                         ) from error
                     try:
                         wavelength, value = (float(part) for part in line.split(","))
                     except ValueError as error:
                         raise DeviceError(
-                            f"Malformed D5 spectral line: {line!r}"
+                            f"Malformed M5 spectral line: {line!r}"
                         ) from error
                     wavelengths.append(wavelength)
                     values.append(value)

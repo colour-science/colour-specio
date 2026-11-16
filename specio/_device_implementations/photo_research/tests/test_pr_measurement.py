@@ -55,7 +55,7 @@ def _d602(mode: str, exposure: str, cycles: str) -> bytes:
 
 
 class TestSpectrum:
-    """D5 parsing: header first, then one wavelength line per sample."""
+    """M5 parsing: header first, then one wavelength line per sample."""
 
     def test_header_is_not_parsed_as_data(self, open_pr: OpenPR) -> None:
         """Each value lands on its own wavelength, 380 nm through 780 nm."""

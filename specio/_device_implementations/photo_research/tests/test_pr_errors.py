@@ -113,7 +113,7 @@ class TestCommandErrors:
         with pytest.raises(PRCommandError) as info:
             pr.measure()
         assert info.value.response.code is PRResponseCode.WEAK_LIGHT
-        assert "D5" not in port.commands
+        assert "D13" not in port.commands
 
     @pytest.mark.parametrize("reply", [b"", b"garbage\r\n", b",PR-655\r\n"])
     def test_malformed_reply_raises_device_error(
