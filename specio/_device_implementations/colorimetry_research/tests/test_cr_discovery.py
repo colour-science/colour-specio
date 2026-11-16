@@ -6,7 +6,7 @@ from __future__ import annotations
 import importlib
 import platform
 from collections.abc import Callable
-from typing import Any, NamedTuple
+from typing import Any, ClassVar, NamedTuple
 
 import pytest
 import serial
@@ -32,10 +32,11 @@ class _PortInfo(NamedTuple):
 class _Serial:
     """A serial port that answers `RC InstrumentType` from a table."""
 
-    opened: list[str] = []
-    closed: list[str] = []
-    written: list[tuple[str, bytes]] = []
-    answers: dict[str, bytes] = {}
+    # Shared by every port a test opens; the fixture gives each test fresh ones.
+    opened: ClassVar[list[str]] = []
+    closed: ClassVar[list[str]] = []
+    written: ClassVar[list[tuple[str, bytes]]] = []
+    answers: ClassVar[dict[str, bytes]] = {}
     timeout = 1.0
 
     def __init__(self, port: str, **_: Any) -> None:
