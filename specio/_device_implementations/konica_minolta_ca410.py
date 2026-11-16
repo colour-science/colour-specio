@@ -773,9 +773,10 @@ class CA410(Colorimeter):
         probe just before ``MES,2`` (see :meth:`_reading_settings`), and the
         status of the ``MES,2`` reply. Reading the settings costs two to three
         extra query round trips per measurement, one each for the speed and
-        the sync mode and one more for INTERNAL or MANUAL sync. A FAST
-        measurement takes about 45 ms, so each query adds a noticeable
-        fraction to it. A settings query that fails fails the measurement.
+        the sync mode and one more for INTERNAL or MANUAL sync. On a CA-410
+        with a CA-VP427A probe the three queries took about 2 ms together,
+        against about 45 ms for a FAST measurement. A settings query that
+        fails fails the measurement.
 
         Returns
         -------
