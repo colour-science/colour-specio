@@ -20,6 +20,7 @@ from ._measurements_shared import (
     compute_color_properties,
     validate_repetitions,
 )
+from .exceptions import MeasurementError
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -128,12 +129,12 @@ class ColorimeterMeasurement(BaseMeasurement):
 
         Raises
         ------
-        RuntimeError
-            If XYZ array is not size 3.
+        MeasurementError
+            If XYZ is not three values.
         """
         XYZ = np.asarray(XYZ)
-        if XYZ.size != (3,):
-            RuntimeError("XYZ must be size (3,)")
+        if XYZ.shape != (3,):
+            raise MeasurementError(f"XYZ must be three values, got shape {XYZ.shape}")
 
         self.XYZ = XYZ
         self.exposure = exposure
