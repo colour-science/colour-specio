@@ -13,8 +13,7 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 
-from ._device_implementations import konica_minolta
-from ._device_implementations.colorimetry_research import colorimetry_research
+from ._device_implementations import colorimetry_research, konica_minolta
 from .common.colorimeters import ColorimeterMeasurement
 from .common.spectrometers import (
     SPDMeasurement,

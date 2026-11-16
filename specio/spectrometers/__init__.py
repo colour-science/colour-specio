@@ -2,9 +2,8 @@
 Spectrometer device implementations.
 """
 
-from specio._device_implementations.colorimetry_research.colorimetry_research import (
-    CRSpectrometer,
-)
+from specio._device_implementations.colorimetry_research import CRSpectrometer
+from specio._device_implementations.konica_minolta import CS2000
 from specio._device_implementations.virtual import VirtualSpectrometer
 
 __version__ = "0.4.1.post0"
@@ -16,6 +15,7 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 __all__ = [
+    "CS2000",
     "CRSpectrometer",
     "VirtualSpectrometer",
 ]
