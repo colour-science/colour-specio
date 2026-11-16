@@ -30,14 +30,21 @@ __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
+_MAX_AVERAGE_SAMPLES = 50
+"""The exposure multiplier's upper bound, per the CR command set."""
+
 __all__ = [
+    "OUT_OF_RANGE_CODES",
     "CRDeviceBase",
     "CommandError",
     "CommandResponse",
+    "IncompleteResponse",
     "InstrumentType",
+    "MeasurementOutOfRange",
     "Model",
     "ResponseCode",
     "ResponseType",
+    "UnexpectedResponse",
 ]
 
 
@@ -196,6 +203,80 @@ class CommandError(Exception):
         self.response = response
         super().__init__(*args)
 
+    @property
+    def code(self) -> ResponseCode:
+        """The device's own code for what went wrong."""
+        return self.response.code
+
+
+class MeasurementOutOfRange(CommandError):
+    """The device measured, and the light is outside what it can report.
+
+    A distinct type because it is a *result*, not a failure to obtain
+    one. The instrument integrated, decided the target sits below its
+    floor or above its ceiling, and said so — which is the correct
+    answer to "how much light is there", and nothing a caller retries
+    its way out of.
+
+    Callers act on it rather than swallow it: a session that meets this
+    at the bottom of a display's range routes the patch to a more
+    sensitive instrument, and one that meets it at the top has an
+    aperture or a filter problem. Retrying instead spends the
+    integration again to be told the same true thing.
+    """
+
+
+# The codes that mean "measured, and out of range" rather than "the
+# exchange went wrong". Colorimetry Research distinguishes them; this
+# library did not, so every caller saw one opaque CommandError.
+OUT_OF_RANGE_CODES = frozenset(
+    {
+        ResponseCode.TOO_DARK,
+        ResponseCode.LIGHT_INTENSITY_TOO_LOW,
+        ResponseCode.LIGHT_INTENSITY_UNMEASURABLE,
+        ResponseCode.LIGHT_INTENSITY_TOO_HIGH,
+    }
+)
+
+
+class IncompleteResponse(Exception):
+    """The device did not finish answering within the command's deadline.
+
+    Distinct from `CommandError`, which carries a response the device
+    chose to send. This is the absence of one: a dark patch whose
+    auto-exposure outruns the read deadline answers with nothing, or
+    with a partial line. Raising it by name is what lets a caller
+    resynchronize and retry rather than crash on an index.
+    """
+
+    def __init__(self, command: str, raw: bytes) -> None:
+        self.command = command
+        self.raw = raw
+        super().__init__(
+            f"{command!r} answered {raw!r}, which is not a complete "
+            "CR response; the device is still busy or the link lost sync"
+        )
+
+
+class UnexpectedResponse(Exception):
+    """The device answered, but not with the value the command asked for.
+
+    Distinct from `IncompleteResponse`, which is the absence of an answer,
+    and from `CommandError`, which is a refusal the device chose to send.
+    This is a reply whose content does not fit the question -- the
+    signature of a desynchronized link, where each read returns the
+    previous command's answer. Raising it by name stops a stale value
+    being cast into a number and used as if it were fresh.
+    """
+
+    def __init__(self, command: str, value: object) -> None:
+        self.command = command
+        self.value = value
+        super().__init__(
+            f"{command!r} answered {value!r}, which is not the value that "
+            "command returns; the link is one reply behind"
+        )
+
 
 class CRDeviceBase(ABC):
     """
@@ -220,6 +301,12 @@ class CRDeviceBase(ABC):
             If the serial port cannot be opened or configured.
         """
         self.__last_cmd_time: float = 0
+        self.__last_command: str = ""
+        # The device is asked once. A measurement needs this to size its
+        # own timeout, and querying the instrument from inside the measure
+        # path meant a property read could abort a measurement that had
+        # not started -- and did, on a display too dark to read.
+        self.__average_samples: int | None = None
         if isinstance(port, str):
             self._port = serial.Serial(port, **_CR_SERIAL_KWARGS)
 
@@ -361,7 +448,14 @@ class CRDeviceBase(ABC):
             If the exposure multiplier query command fails.
         """
         response = self._write_cmd("RS ExposureX")
-        return int(response.arguments[0])
+        raw = response.arguments[0] if response.arguments else ""
+        try:
+            value = int(raw)
+        except (TypeError, ValueError) as e:
+            raise UnexpectedResponse("RS ExposureX", raw) from e
+
+        self.__average_samples = value
+        return value
 
     @average_samples.setter
     def average_samples(self, num: int) -> None:
@@ -379,8 +473,25 @@ class CRDeviceBase(ABC):
             If the exposure multiplier setting command fails.
         """
         num = num if num > 0 else 1
-        num = num if num < 50 else 50
+        num = num if num < _MAX_AVERAGE_SAMPLES else _MAX_AVERAGE_SAMPLES
         self._write_cmd(f"SM ExposureX {num:d}")
+        self.__average_samples = num
+
+    def _samples_for_timeout(self) -> int:
+        """The multiplier a measurement sizes its read window by.
+
+        The last value read or written here, so a measurement carries no
+        extra serial exchange before it starts. With none known, the
+        device is asked once. A link that cannot answer gets the widest
+        window, because sizing the window must not fail the measurement
+        it sizes.
+        """
+        if self.__average_samples is not None:
+            return self.__average_samples
+        try:
+            return self.average_samples
+        except (CommandError, IncompleteResponse, UnexpectedResponse):
+            return _MAX_AVERAGE_SAMPLES
 
     @property
     def instrument_type(self) -> InstrumentType:
@@ -448,18 +559,59 @@ class CRDeviceBase(ABC):
                 )
             )
 
+        self.__last_command = command
+
         self.__clear_buffer()
         self._port.write(enc_command)
         self.__last_cmd_time = time.time()
 
-        response = self._port.readline()
+        # The measure paths size the port timeout to the longest
+        # integration the settings allow, so one read waits for it.
+        raw = self._port.readline()
 
-        response = self._parse_response(response)
+        try:
+            response = self._parse_response(raw)
+        except IncompleteResponse:
+            # Whatever arrives late would answer the *next* command and
+            # desynchronize every read after it, so resynchronize before
+            # anything else runs.
+            self.resync()
+            raise
 
         if response.type == ResponseType.ERROR:
-            raise CommandError(response, response.arguments[0])
+            # The device does not always attach an argument to an error,
+            # and indexing one that is not there turned the device's
+            # report into an IndexError from inside this library — the
+            # caller then saw a crash where the instrument had sent a
+            # perfectly clear message. Fall back to the description it
+            # always sends.
+            detail = (
+                response.arguments[0] if response.arguments else response.description
+            )
+            if response.code in OUT_OF_RANGE_CODES:
+                raise MeasurementOutOfRange(response, detail)
+            raise CommandError(response, detail)
         else:
             return response
+
+    def resync(self) -> None:
+        """Drop anything in flight, so the next reply answers the next command.
+
+        A timed-out command leaves its answer in the port, one command
+        behind forever. Discarding both buffers and draining what is still
+        arriving puts the conversation back on the turn the caller thinks
+        it is on. The exposure multiplier is forgotten with it, since the
+        device may not hold what was last seen.
+        """
+        log = logging.getLogger("specio.CR")
+        log.debug("resynchronizing the CR link")
+        self.__average_samples = None
+        try:
+            self._port.reset_input_buffer()
+            self._port.reset_output_buffer()
+        except serial.SerialException:  # pragma: no cover - port already gone
+            return
+        self.__clear_buffer()
 
     def _parse_response(self, data: bytes) -> CommandResponse:
         """
@@ -476,10 +628,21 @@ class CRDeviceBase(ABC):
             Structured response containing parsed type, code, description and arguments.
         """
         response = data.strip().split(b":")
+        # A CR response is at least `type:code:description`. Fewer fields
+        # means the device answered nothing or was cut off mid-line. A
+        # device error such as `E:100:M` has exactly three and is complete.
+        if len(response) < 3:
+            raise IncompleteResponse(self.__last_command, data)
 
         args = []
+        # A device error carries no fourth field at all — `E:100:M` is a
+        # complete reply meaning "too dark". Reading past it turned the
+        # instrument's own report into an IndexError raised from inside
+        # this library, so a caller saw a crash where the device had said
+        # something clear. Observed on a CR-300 reading a capped aperture.
         if (
-            response[3].decode().isnumeric()
+            len(response) > 3
+            and response[3].decode().isnumeric()
             and int(response[3]) > 0
             and self._port.in_waiting
         ):
