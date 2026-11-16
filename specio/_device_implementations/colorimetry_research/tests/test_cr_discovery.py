@@ -139,7 +139,9 @@ def test_no_cr_on_the_machine_opens_nothing(machine: Machine) -> None:
     assert fake.written == []
 
 
-def test_a_cr_of_the_wrong_kind_is_closed_and_the_search_goes_on(machine: Machine) -> None:
+def test_a_cr_of_the_wrong_kind_is_closed_and_the_search_goes_on(
+    machine: Machine,
+) -> None:
     """A CR-300 and a CR-120 share a vendor ID and a product ID, so only the
     handshake tells them apart; the one that isn't wanted is released."""
     fake = machine(
@@ -164,7 +166,9 @@ def test_a_cr_that_will_not_open_is_skipped(machine: Machine) -> None:
 
 
 def test_a_cr_of_the_wrong_kind_alone_is_not_found(machine: Machine) -> None:
-    fake = machine([_PortInfo("/dev/ttyACM0", CR_VID)], {"/dev/ttyACM0": SPECTRORADIOMETER})
+    fake = machine(
+        [_PortInfo("/dev/ttyACM0", CR_VID)], {"/dev/ttyACM0": SPECTRORADIOMETER}
+    )
 
     with pytest.raises(serial.SerialException, match="colorimeter"):
         cr.CRColorimeter.discover()
