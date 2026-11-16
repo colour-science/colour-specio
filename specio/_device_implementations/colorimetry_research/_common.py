@@ -5,7 +5,6 @@ Common base classes and utilities for Colorimetry Research devices.
 from __future__ import annotations
 
 import logging
-import platform
 import textwrap
 import time
 from abc import ABC, abstractmethod
@@ -52,6 +51,13 @@ __all__ = [
 
 _COMMAND_TIMEOUT = 0.05
 _DEFAULT_SERIAL_TIMEOUT = 0.025
+USB_VENDOR_ID = 0x2799
+"""Colorimetry Research's USB vendor ID, which every CR instrument reports.
+
+A CR-120 and a CR-300 both enumerate as `2799:0002`, a virtual COM port, so
+the ID finds a CR but only a handshake tells which kind it is.
+"""
+
 _CR_SERIAL_KWARGS: Mapping = MappingProxyType(
     {
         "baudrate": 115200,
@@ -331,40 +337,41 @@ class CRDeviceBase(ABC):
         Raises
         ------
         serial.SerialException
-            If no serial port can be automatically linked.
+            If no Colorimetry Research instrument of the expected type is
+            found. An instrument that reports another USB vendor ID isn't
+            probed; construct the driver with its port instead.
         """
-        if platform.system() == "Darwin":
-            port_list = list(serial.tools.list_ports.grep("usbmodem"))
-        elif platform.system() == "Windows":
-            port_list = list(serial.tools.list_ports.grep("Colorimetry"))
-        elif platform.system() == "Unix":
-            raise NotImplementedError("CR discovery is not implemented for Unix")
-        elif platform.system() == "Linux":
-            port_list = list(serial.tools.list_ports.grep("ACM"))
-        else:
-            port_list = serial.tools.list_ports.comports()
-
-        if len(port_list) == 0:
-            raise serial.SerialException("No serial ports found on machine")
-
         device_type_name = expected_instrument_type.name.lower()
 
+        # Only ports the vendor ID names get a handshake. Writing to another
+        # instrument's port, such as a CA-410's, can disturb its measurement.
+        port_list = [
+            p for p in serial.tools.list_ports.comports() if p.vid == USB_VENDOR_ID
+        ]
+        if not port_list:
+            raise serial.SerialException(
+                "No Colorimetry Research instrument found on a USB port. "
+                "Check connection and device power."
+            )
+
+        expected_response = (
+            f"OK:0:RC InstrumentType:{expected_instrument_type.value}".encode()
+        )
         for p in port_list:
             try:
-                device = p.device
-                sp = serial.Serial(device, **_CR_SERIAL_KWARGS)
+                sp = serial.Serial(p.device, **_CR_SERIAL_KWARGS)
+            except (serial.SerialException, OSError):
+                continue  # held by another program, or gone
+            try:
                 sp.readall()
                 sp.write(b"RC InstrumentType\n")
-
-                response = sp.readline()
-                expected_response = (
-                    f"OK:0:RC InstrumentType:{expected_instrument_type.value}".encode()
-                )
-                if response.startswith(expected_response):
-                    sp.close()
-                    return cls(device)
-            except:  # noqa: E722
-                continue
+                found = sp.readline().startswith(expected_response)
+            except (serial.SerialException, OSError):
+                found = False
+            finally:
+                sp.close()
+            if found:
+                return cls(p.device)
 
         raise serial.SerialException(
             textwrap.dedent(
