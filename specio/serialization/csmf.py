@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 __author__ = "Tucker Downs"
 __copyright__ = "Copyright 2022 Specio Developers"
-__license__ = "MIT License - https://github.com/tjdcs/specio/blob/main/LICENSE.md"
+__license__ = "BSD-3-Clause"
 __maintainer__ = "Tucker Downs"
 __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
@@ -44,10 +44,10 @@ class CSMF_Metadata:
     conducted.
     """
 
-    notes: None | str = None
-    author: None | str = None
-    location: None | str = None
-    software: None | str = "colour-specio"
+    notes: str | None = None
+    author: str | None = None
+    location: str | None = None
+    software: str | None = "colour-specio"
 
 
 @dataclass(kw_only=True)
