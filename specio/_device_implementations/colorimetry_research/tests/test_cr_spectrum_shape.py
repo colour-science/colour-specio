@@ -11,7 +11,7 @@ import pytest
 from specio._device_implementations.colorimetry_research._cr_spectrometers import (
     CRSpectrometer,
 )
-from specio._device_implementations.colorimetry_research.tests.test_cr_spectrometer import (  # noqa: E501
+from specio._device_implementations.colorimetry_research.tests.test_cr_spectrometer import (
     ScriptedPort,
 )
 from specio.common.exceptions import DeviceError
