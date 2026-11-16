@@ -11,12 +11,13 @@ import re
 from functools import cached_property
 from typing import ClassVar, final
 
+import serial
 from colour import SpectralDistribution
 
 from specio.common import RawSPDMeasurement, SpecRadiometer
 from specio.common.exceptions import DeviceError
 
-from ._common import PRDeviceBase, PRIncompleteReplyError
+from ._common import MeasurementOutOfRange, PRDeviceBase, PRIncompleteReplyError
 
 __version__ = "0.4.1.post0"
 __author__ = "Tucker Downs"
@@ -27,6 +28,7 @@ __email__ = "tucker@tjdcs.dev"
 __status__ = "Development"
 
 __all__ = [
+    "FLOOR_SOURCE_NOMINAL",
     "PRSpectrometer",
 ]
 
@@ -38,8 +40,22 @@ _MAX_AVERAGE_SAMPLES = 99
 
 # Field positions in the D602 verbose setup report, counted after the
 # error code (PR-655/670 User Manual, p.148).
+_D602_PRIMARY_ACCESSORY_FIELD = 0
+_D602_ADDON_FIELDS = (1, 2, 3)
+_D602_APERTURE_FIELD = 4
 _D602_EXPOSURE_TIME_FIELD = 7
 _D602_CYCLES_FIELD = 9
+
+# The lowest luminance each optical setup reports, in cd/m², from the
+# PR-655/670 User Manual's "PR-655 Sensitivity Chart" (Table 12). Keyed
+# by (primary accessory, aperture) with no add-on fitted; only the rows
+# that read unambiguously off the chart are carried. Any other setup
+# states no floor rather than a guess.
+_NOMINAL_FLOORS: dict[tuple[str, str], float] = {
+    ("MS-75", "1 deg"): 3.4,
+}
+
+FLOOR_SOURCE_NOMINAL = "nominal: PR-655/670 User Manual, Table 12"
 
 _LEADING_NUMBER = re.compile(r"\s*(\d+(?:\.\d+)?)")
 _MSEC_VALUE = re.compile(r"(\d+(?:\.\d+)?)\s*msec")
@@ -286,6 +302,68 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
             raise DeviceError(f"Malformed Photo Research D13 report: {report!r}")
         return float(match.group(1)) / _MS_PER_SECOND
 
+    @property
+    def floor(self) -> float | None:
+        """
+        The lowest luminance the current optical setup reports, in cd/m².
+
+        Read from the verbose setup report (D602: primary accessory,
+        add-ons, aperture) and looked up in the manual's sensitivity
+        chart. The device can return readings below it: it is the
+        manufacturer's stated range, not where this unit refuses. Each
+        access reads D602 again, because a change of aperture or accessory
+        changes the floor.
+
+        Returns
+        -------
+        float | None
+            The stated floor, or None when the setup is not one the chart
+            states unambiguously.
+
+        Raises
+        ------
+        PRCommandError
+            If the setup query fails.
+        PRIncompleteReplyError
+            If the setup report is cut short.
+        """
+        fields = self._write_cmd("D602").raw_data.split(",")
+        if len(fields) <= _D602_APERTURE_FIELD:
+            return None
+        if any(fields[i].strip() != "None" for i in _D602_ADDON_FIELDS):
+            return None
+        primary = fields[_D602_PRIMARY_ACCESSORY_FIELD].strip()
+        aperture = fields[_D602_APERTURE_FIELD].strip()
+        return _NOMINAL_FLOORS.get((primary, aperture))
+
+    @property
+    def floor_source(self) -> str | None:
+        """Where :attr:`floor` comes from, or None when there is no floor."""
+        return FLOOR_SOURCE_NOMINAL if self.floor is not None else None
+
+    def _attach_floor(self, refusal: MeasurementOutOfRange) -> None:
+        """
+        Record the stated floor on a too-dark refusal.
+
+        The floor is read when the refusal is raised, so it describes the
+        setup that refused. If the read fails, the refusal keeps no floor,
+        and the caller still sees the refusal rather than the failed read.
+
+        Parameters
+        ----------
+        refusal : MeasurementOutOfRange
+            The too-dark refusal to annotate.
+        """
+        try:
+            floor = self.floor
+        except (DeviceError, serial.SerialException) as error:
+            logging.getLogger("specio.PR").debug(
+                "No floor for the refusal, the setup read failed: %s", error
+            )
+            return
+        refusal.floor = floor
+        refusal.floor_source = FLOOR_SOURCE_NOMINAL if floor is not None else None
+
     def _raw_measure(self) -> RawSPDMeasurement:
         """
         Perform a spectral measurement and return raw spectral data.
@@ -303,6 +381,9 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
 
         Raises
         ------
+        MeasurementOutOfRange
+            If the light is outside the device's range; a too-dark refusal
+            carries the floor the device states for its setup.
         PRCommandError
             If the measurement or data retrieval command returns an error.
         DeviceError
@@ -313,7 +394,12 @@ class PRSpectrometer(PRDeviceBase, SpecRadiometer):
         spectrometer_id = self.readable_id
 
         log.debug("Triggering spectral measurement (M0)")
-        self._write_cmd("M0", timeout=_MEASUREMENT_TIMEOUT)
+        try:
+            self._write_cmd("M0", timeout=_MEASUREMENT_TIMEOUT)
+        except MeasurementOutOfRange as refusal:
+            if refusal.too_dark:
+                self._attach_floor(refusal)
+            raise
 
         # Some firmware may stream the spectrum after the M0 code. The drain
         # before D5 discards that stream, so D5 reads its own header and
