@@ -68,8 +68,11 @@ def combine_statuses(statuses: Iterable[ReadingStatus | None]) -> ReadingStatus 
 
     The result carries the union of the flags, in order of first appearance
     and without duplicates, so a condition seen in any repetition stays
-    visible on the average. The code and message come from the first reading
-    that has a status.
+    visible on the average. When every repetition reports the same code and
+    message, the result keeps them. When they differ, no single device code
+    describes the average, and the first reading's code would contradict the
+    flags the others set, so the code is empty and the message lists the
+    combined flags.
 
     Parameters
     ----------
@@ -85,7 +88,9 @@ def combine_statuses(statuses: Iterable[ReadingStatus | None]) -> ReadingStatus 
     if not present:
         return None
     flags = tuple(dict.fromkeys(f for s in present for f in s.flags))
-    return ReadingStatus(code=present[0].code, message=present[0].message, flags=flags)
+    if len({(s.code, s.message) for s in present}) == 1:
+        return ReadingStatus(present[0].code, present[0].message, flags)
+    return ReadingStatus("", ", ".join(flags), flags)
 
 
 def validate_repetitions(repetitions: int) -> None:

@@ -242,18 +242,38 @@ class TestAveraging:
             raw_col(status=ReadingStatus("OK00")),
         ]
         status = FakeColorimeter(readings).measure(3).status
+        assert status is not None
+        assert status.flags == ("TEMPERATURE_SHIFT", "BELOW_GUARANTEED_RANGE")
+
+    def test_readings_with_the_same_status_keep_its_code_and_message(self):
+        same = ReadingStatus("OK04", "m4", ("X",))
+        readings = [raw_spd(), raw_spd(status=same), raw_spd(status=same)]
+        assert FakeSpectrometer(readings).measure(3).status == same
+
+    def test_readings_with_different_statuses_drop_the_code(self):
+        """No single device code describes the average, and the first
+        reading's code would contradict the flags the others set: an average
+        of OK00 and OK04 reads OK00 beside BELOW_GUARANTEED_RANGE."""
+        readings = [
+            raw_col(status=ReadingStatus("OK00")),
+            raw_col(
+                status=ReadingStatus(
+                    "OK04", "BELOW_GUARANTEED_RANGE", ("BELOW_GUARANTEED_RANGE",)
+                )
+            ),
+        ]
+        status = FakeColorimeter(readings).measure(2).status
         assert status == ReadingStatus(
-            "OK02", "TEMPERATURE_SHIFT", ("TEMPERATURE_SHIFT", "BELOW_GUARANTEED_RANGE")
+            "", "BELOW_GUARANTEED_RANGE", ("BELOW_GUARANTEED_RANGE",)
         )
 
-    def test_status_takes_code_and_message_of_first_reading_with_one(self):
+    def test_differing_statuses_list_their_flags_in_the_message(self):
         readings = [
-            raw_spd(),
             raw_spd(status=ReadingStatus("OK04", "m4", ("X",))),
             raw_spd(status=ReadingStatus("OK02", "m2", ("Y",))),
         ]
-        status = FakeSpectrometer(readings).measure(3).status
-        assert status == ReadingStatus("OK04", "m4", ("X", "Y"))
+        status = FakeSpectrometer(readings).measure(2).status
+        assert status == ReadingStatus("", "X, Y", ("X", "Y"))
 
     def test_no_status_stays_none(self):
         assert FakeColorimeter([raw_col(), raw_col()]).measure(2).status is None

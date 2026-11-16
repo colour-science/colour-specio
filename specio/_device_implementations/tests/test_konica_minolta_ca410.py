@@ -595,8 +595,10 @@ class TestReadingRecord:
             m = ca.measure(repetitions=2)
 
         assert m.status is not None
-        assert m.status.code == "OK02"
+        # OK02 and OK06 differ, so no single code describes the average.
+        assert m.status.code == ""
         assert m.status.flags == ("TEMPERATURE_SHIFT", "BELOW_GUARANTEED_RANGE")
+        assert m.status.message == "TEMPERATURE_SHIFT, BELOW_GUARANTEED_RANGE"
 
     def test_records_speed_and_sync_mode(self):
         m = CA410(make_port(STR_7=b"OK00,0\r", STR_1=b"OK00,3\r")).measure()
