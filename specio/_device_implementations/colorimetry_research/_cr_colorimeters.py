@@ -13,7 +13,10 @@ import numpy as np
 from specio.common.colorimeters import Colorimeter, RawColorimeterMeasurement
 from specio.common.utility import specio_warning
 
-from ._common import CRDeviceBase, InstrumentType
+from ._common import (
+    CRDeviceBase,
+    InstrumentType,
+)
 
 
 @final
@@ -207,7 +210,8 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         """
         t = self._port.timeout
 
-        self._port.apply_settings({"timeout": 10 + 0.5 * self.average_samples})
+        samples = self._samples_for_timeout()
+        self._port.apply_settings({"timeout": 10 + 0.5 * samples})
         response = self._write_cmd("M")
 
         self._port.apply_settings({"timeout": 0.21})
