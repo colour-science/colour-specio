@@ -213,10 +213,20 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         """
         Perform a colorimetric measurement and return raw XYZ values.
 
+        The reading records the settings it was taken under. ``filters`` joins
+        the declared filter names with commas, in position order, from one
+        ``RS Filter`` exchange. The instrument scales its reading by the
+        attenuation of the declared filters, so a declaration that differs
+        from the filters physically fitted gives a result wrong by that
+        factor. ``average_samples`` is the value the read window was sized
+        from. A colorimeter has no speed setting (CR Protocol Manual 1.36), so
+        none is recorded.
+
         Returns
         -------
         RawColorimeterMeasurement
-            Raw measurement data containing XYZ values, device ID, and exposure time.
+            Raw measurement data containing XYZ values, device ID, exposure
+            time and settings.
 
         Raises
         ------
@@ -226,6 +236,7 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         t = self._port.timeout
 
         samples = self._samples_for_timeout()
+        filters = ",".join(self.current_filters_names)
         self._port.apply_settings({"timeout": 10 + 0.5 * samples})
         response = self._write_cmd("M")
 
@@ -244,4 +255,5 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
             XYZ=XYZ,
             device_id=self.readable_id,
             exposure=exposure,
+            settings={"filters": filters, "average_samples": str(samples)},
         )

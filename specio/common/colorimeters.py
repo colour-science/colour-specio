@@ -5,8 +5,9 @@ Define basic colorimeter interfaces
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Self
 
 import numpy as np
@@ -14,12 +15,16 @@ from colour.temperature.ohno2013 import XYZ_to_CCT_Ohno2013
 
 from ._measurements_shared import (
     BaseMeasurement,
+    ReadingStatus,
+    combine_statuses,
     compute_color_properties,
     validate_repetitions,
 )
 from .exceptions import MeasurementError
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from colour.hints import ArrayLike
 
 __version__ = "0.4.1.post0"
@@ -54,11 +59,18 @@ class RawColorimeterMeasurement:
         Exposure time or integration time used for the measurement.
     device_id : str
         Unique identifier for the measuring device.
+    status : ReadingStatus | None
+        The device's verdict on the reading, or None when the driver has none.
+    settings : dict[str, str]
+        Instrument settings the reading was taken under. Keys are
+        lower_snake_case and values are strings.
     """
 
     XYZ: np.ndarray
     exposure: float
     device_id: str
+    status: ReadingStatus | None = None
+    settings: dict[str, str] = field(default_factory=dict)
 
 
 class ColorimeterMeasurement(BaseMeasurement):
@@ -77,7 +89,13 @@ class ColorimeterMeasurement(BaseMeasurement):
         ColorimeterMeasurement
             Processed measurement with calculated color properties.
         """
-        return cls(raw.XYZ, raw.exposure, raw.device_id)
+        return cls(
+            raw.XYZ,
+            raw.exposure,
+            raw.device_id,
+            status=raw.status,
+            settings=raw.settings,
+        )
 
     def __init__(
         self,
@@ -85,6 +103,9 @@ class ColorimeterMeasurement(BaseMeasurement):
         exposure: float,
         device_id: str,
         no_compute: bool = False,
+        *,
+        status: ReadingStatus | None = None,
+        settings: Mapping[str, str] | None = None,
     ):
         """
         Initialize colorimeter measurement with computed color properties.
@@ -100,6 +121,11 @@ class ColorimeterMeasurement(BaseMeasurement):
         no_compute : bool, optional
             If True, skip calculation of derived color properties (CCT, xy, etc.).
             Default is False.
+        status : ReadingStatus | None, optional
+            The device's verdict on the reading. Default is None.
+        settings : Mapping[str, str] | None, optional
+            Instrument settings the reading was taken under. The measurement
+            keeps a read-only copy. Default is none.
 
         Raises
         ------
@@ -113,6 +139,8 @@ class ColorimeterMeasurement(BaseMeasurement):
         self.XYZ = XYZ
         self.exposure = exposure
         self.device_id = device_id
+        self.status = status
+        self.settings = MappingProxyType(dict(settings or {}))
 
         if not no_compute:
             cct = XYZ_to_CCT_Ohno2013(self.XYZ)
@@ -145,6 +173,8 @@ class ColorimeterMeasurement(BaseMeasurement):
             "dominant_wl",
             "purity",
             "time",
+            "status",
+            "settings",
         ]
 
     def __str__(self) -> str:
@@ -232,7 +262,10 @@ class Colorimeter(ABC):
         -------
         Measurement
             A dataclass containing various convenience calculations from python
-            colour-science and the raw SPD.
+            colour-science and the raw SPD. With ``repetitions > 1`` the
+            result averages the readings. It keeps the first reading's
+            ``settings``, and its ``status`` combines the readings (see
+            :func:`~specio.common._measurements_shared.combine_statuses`).
         """
 
         validate_repetitions(repetitions)
@@ -249,5 +282,11 @@ class Colorimeter(ABC):
         id = _rm[0].device_id
 
         return ColorimeterMeasurement.FromRaw(
-            RawColorimeterMeasurement(XYZ=XYZ, exposure=exposure, device_id=id)
+            RawColorimeterMeasurement(
+                XYZ=XYZ,
+                exposure=exposure,
+                device_id=id,
+                status=combine_statuses(m.status for m in _rm),
+                settings=_rm[0].settings,
+            )
         )

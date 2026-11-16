@@ -4,7 +4,10 @@ Shared measurement processing utilities for colorimeters and spectrometers.
 
 import textwrap
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from datetime import datetime
+from types import MappingProxyType
 from typing import Any
 
 import numpy as np
@@ -26,9 +29,68 @@ __status__ = "Development"
 
 __all__ = [
     "BaseMeasurement",
+    "ReadingStatus",
+    "combine_statuses",
     "compute_color_properties",
     "validate_repetitions",
 ]
+
+
+@dataclass(frozen=True)
+class ReadingStatus:
+    """
+    The device's verdict on one reading, as it reported it.
+
+    A reply can succeed and still carry a caution, such as a reading below
+    the range the instrument guarantees. This record keeps that caution with
+    the reading, because the numbers alone don't show it.
+
+    Parameters
+    ----------
+    code : str
+        The device's reply code, for example ``"OK04"``. Empty when the
+        driver has no code to report.
+    message : str
+        Human-readable text for the code. Empty when the device sends none.
+    flags : tuple[str, ...]
+        Names of the conditions the reply sets, for example
+        ``("BELOW_GUARANTEED_RANGE",)``. Empty when the reply sets none.
+    """
+
+    code: str = ""
+    message: str = ""
+    flags: tuple[str, ...] = ()
+
+
+def combine_statuses(statuses: Iterable[ReadingStatus | None]) -> ReadingStatus | None:
+    """
+    Combine the statuses of repeated readings into one.
+
+    The result carries the union of the flags, in order of first appearance
+    and without duplicates, so a condition seen in any repetition stays
+    visible on the average. When every repetition reports the same code and
+    message, the result keeps them. When they differ, no single device code
+    describes the average, and the first reading's code would contradict the
+    flags the others set, so the code is empty and the message lists the
+    combined flags.
+
+    Parameters
+    ----------
+    statuses : Iterable[ReadingStatus | None]
+        The status of each repetition, in measurement order.
+
+    Returns
+    -------
+    ReadingStatus | None
+        The combined status, or None when no repetition has one.
+    """
+    present = [s for s in statuses if s is not None]
+    if not present:
+        return None
+    flags = tuple(dict.fromkeys(f for s in present for f in s.flags))
+    if len({(s.code, s.message) for s in present}) == 1:
+        return ReadingStatus(present[0].code, present[0].message, flags)
+    return ReadingStatus("", ", ".join(flags), flags)
 
 
 def validate_repetitions(repetitions: int) -> None:
@@ -83,6 +145,17 @@ def compute_color_properties(XYZ: np.ndarray) -> dict[str, Any]:
 class BaseMeasurement(ABC):
     """
     Base class for measurement objects with common functionality.
+
+    Attributes
+    ----------
+    status : ReadingStatus | None
+        The device's verdict on the reading, or None when the driver reports
+        none.
+    settings : Mapping[str, str]
+        The instrument settings the reading was taken under, such as the
+        measurement speed. Keys are lower_snake_case and values are strings.
+        Empty when the driver records none. Averaged readings keep the
+        settings of the first repetition.
     """
 
     # Declare attributes that all measurement classes should have
@@ -94,6 +167,10 @@ class BaseMeasurement(ABC):
     dominant_wl: float
     purity: float
     exposure: float
+
+    # Class-level defaults keep every existing constructor call working
+    status: ReadingStatus | None = None
+    settings: Mapping[str, str] = MappingProxyType({})
 
     def __eq__(self, other: object) -> bool:
         """

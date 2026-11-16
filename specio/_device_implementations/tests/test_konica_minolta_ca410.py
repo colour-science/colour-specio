@@ -22,6 +22,7 @@ from specio._device_implementations.konica_minolta_ca410 import (
     SyncMode,
     SyncSetting,
 )
+from specio.common import ReadingStatus
 from specio.common.exceptions import DeviceError
 from specio.common.utility import SpecioRuntimeWarning
 
@@ -90,6 +91,8 @@ def make_port(**overrides: bytes | list[bytes]) -> StreamPort:
         "IDO,0,1": IDENTITY_REPLY,
         "STR,6": b"OK00,1\r",
         "STR,23": b"OK00,2\r",
+        "STR,7": b"OK00,1\r",
+        "STR,1": b"OK00,0\r",
         "ZRC": b"OK00\r",
         "MES,2": MEASURE_REPLY,
     }
@@ -345,6 +348,8 @@ class TestTimeouts:
             "STR,6": konica_minolta_ca410.QUERY_TIMEOUT,
             "STR,23": konica_minolta_ca410.QUERY_TIMEOUT,
             "ZRC": konica_minolta_ca410.ZERO_CALIBRATION_TIMEOUT,
+            "STR,7": konica_minolta_ca410.QUERY_TIMEOUT,
+            "STR,1": konica_minolta_ca410.QUERY_TIMEOUT,
             "MES,2": konica_minolta_ca410.MEASURE_TIMEOUT,
         }
 
@@ -534,3 +539,122 @@ class TestSync:
 
         with pytest.raises(CA410Error, match="sync"):
             _ = ca.sync
+
+
+class TestReadingRecord:
+    """The measurement carries the MES reply status and the settings it used."""
+
+    def test_clean_reply_has_a_bare_ok_status(self):
+        m = CA410(make_port()).measure()
+
+        assert m.status == ReadingStatus(code="OK00")
+
+    def test_below_guaranteed_range(self):
+        ca = CA410(make_port(MES_2=MEASURE_REPLY.replace(b"OK00", b"OK04")))
+
+        with pytest.warns(SpecioRuntimeWarning, match="BELOW_GUARANTEED_RANGE"):
+            m = ca.measure()
+
+        assert m.status == ReadingStatus(
+            code="OK04",
+            message="BELOW_GUARANTEED_RANGE",
+            flags=("BELOW_GUARANTEED_RANGE",),
+        )
+
+    def test_two_flags(self):
+        ca = CA410(make_port(MES_2=MEASURE_REPLY.replace(b"OK00", b"OK06")))
+
+        with pytest.warns(SpecioRuntimeWarning):
+            m = ca.measure()
+
+        assert m.status is not None
+        assert m.status.code == "OK06"
+        assert m.status.flags == ("TEMPERATURE_SHIFT", "BELOW_GUARANTEED_RANGE")
+        assert m.status.message == "TEMPERATURE_SHIFT, BELOW_GUARANTEED_RANGE"
+
+    def test_status_comes_from_the_measure_reply_not_the_settings_queries(self):
+        # A flag on a settings query must not leak onto the reading
+        ca = CA410(make_port(STR_7=b"OK04,1\r"))
+
+        with pytest.warns(SpecioRuntimeWarning):
+            m = ca.measure()
+
+        assert m.status == ReadingStatus(code="OK00")
+
+    def test_repetitions_combine_flags(self):
+        ca = CA410(
+            make_port(
+                MES_2=[
+                    MEASURE_REPLY.replace(b"OK00", b"OK02"),
+                    MEASURE_REPLY.replace(b"OK00", b"OK06"),
+                ]
+            )
+        )
+
+        with pytest.warns(SpecioRuntimeWarning):
+            m = ca.measure(repetitions=2)
+
+        assert m.status is not None
+        # OK02 and OK06 differ, so no single code describes the average.
+        assert m.status.code == ""
+        assert m.status.flags == ("TEMPERATURE_SHIFT", "BELOW_GUARANTEED_RANGE")
+        assert m.status.message == "TEMPERATURE_SHIFT, BELOW_GUARANTEED_RANGE"
+
+    def test_records_speed_and_sync_mode(self):
+        m = CA410(make_port(STR_7=b"OK00,0\r", STR_1=b"OK00,3\r")).measure()
+
+        assert dict(m.settings) == {
+            "measurement_speed": "slow",
+            "sync_mode": "universal",
+        }
+
+    def test_records_internal_sync_frequency(self):
+        port = make_port(STR_1=b"OK00,4\r", STR_28=b"OK00,59.94\r")
+
+        m = CA410(port).measure()
+
+        assert dict(m.settings) == {
+            "measurement_speed": "fast",
+            "sync_mode": "internal",
+            "sync_frequency_hz": "59.94",
+        }
+
+    def test_records_manual_measurement_time_in_seconds(self):
+        port = make_port(STR_1=b"OK00,5\r", STR_17=b"OK00,250.0\r")
+
+        m = CA410(port).measure()
+
+        assert dict(m.settings) == {
+            "measurement_speed": "fast",
+            "sync_mode": "manual",
+            "sync_measurement_time_s": "0.25",
+        }
+
+    def test_settings_are_read_before_the_measurement(self):
+        port = make_port()
+        ca = CA410(port)
+        port.sent.clear()
+
+        ca.measure()
+
+        assert port.commands == ["STR,7", "STR,1", "MES,2"]
+
+    def test_settings_are_read_fresh_each_measurement(self):
+        port = make_port(STR_7=[b"OK00,1\r", b"OK00,0\r"])
+        ca = CA410(port)
+
+        speeds = [ca.measure().settings["measurement_speed"] for _ in range(2)]
+
+        assert speeds == ["fast", "slow"]
+
+    def test_raw_measure_reports_status_and_settings(self):
+        raw = CA410(make_port())._raw_measure()
+
+        assert raw.status == ReadingStatus(code="OK00")
+        assert raw.settings["measurement_speed"] == "fast"
+
+    def test_failed_settings_read_fails_the_measurement(self):
+        ca = CA410(make_port(STR_7=b"OK00,9\r"))
+
+        with pytest.raises(CA410Error, match="measurement speed"):
+            ca.measure()

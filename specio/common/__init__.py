@@ -1,3 +1,4 @@
+from ._measurements_shared import ReadingStatus
 from .colorimeters import (
     Colorimeter,
     ColorimeterMeasurement,
@@ -24,6 +25,7 @@ __all__ = [
     "ColorimeterMeasurement",
     "RawColorimeterMeasurement",
     "RawSPDMeasurement",
+    "ReadingStatus",
     "SPDMeasurement",
     "SpecRadiometer",
     "SpecioRuntimeWarning",
