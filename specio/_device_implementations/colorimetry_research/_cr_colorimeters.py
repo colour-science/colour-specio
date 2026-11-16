@@ -5,7 +5,7 @@ Colorimetry Research colorimeter implementation.
 from __future__ import annotations
 
 import re
-from typing import cast, final
+from typing import final
 
 import bidict
 import numpy as np
@@ -21,7 +21,7 @@ from ._common import (
 
 @final
 class CRColorimeter(CRDeviceBase, Colorimeter):
-    """Interface with a colorimetry research brand CR-250 or CR-300 in colorimeter mode.
+    """Interface with a Colorimetry Research colorimeter, such as the CR-100 or CR-120.
 
     Implements the `specio.colorimeters.Colorimeter` interface for direct XYZ measurements.
 
@@ -98,11 +98,23 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         """
         if not hasattr(self, "_available_filters"):
             response = self._write_cmd("RC Filter")
+            rows = [
+                (arg.decode() if isinstance(arg, bytes) else arg).strip()
+                for arg in response.arguments
+            ]
+            # The header line ends in the row count. The parser reads the rows
+            # only if they are already waiting, so a slow reply leaves the bare
+            # count here; read that many rows now. A device with no filters,
+            # such as a CR-100, reports a count of 0 and no rows.
+            if len(rows) == 1 and rows[0].isdigit():
+                count = int(rows[0])
+                rows = [self._port.readline().decode().strip() for _ in range(count)]
+            # A row is `ID,name,type`, such as `1,ND-120-1.3,Radiance`; RS
+            # Filter reports a selected filter by its name alone.
             filters = bidict.bidict()
-            for arg in response.arguments:
-                arg = cast("bytes", arg)
-                items = arg.decode().strip().split(",")
-                filters[int(items[0])] = items[1]
+            for row in rows:
+                fields = row.split(",")
+                filters[int(fields[0])] = fields[1]
             filters[0] = "None"
             self._available_filters = filters
         return self._available_filters
@@ -184,14 +196,17 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         measurement accuracy and should be verified by the user.
         """
         cur = self.current_filters
-        if len(cur) == 0:
+        # current_filters always has one entry per filter slot (Filter1-3), so
+        # count only the slots that actually have a filter selected (id != 0/"None").
+        active = [f for f in cur if f != 0]
+        if len(active) == 0:
             specio_warning("Check colorimeter has no active filters.")
-        elif len(cur) == 1:
+        elif len(active) == 1:
             specio_warning(
-                f"Check colorimeter has one filter: {self.available_filters[cur[0]]}"
+                f"Check colorimeter has one filter: {self.available_filters[active[0]]}"
             )
         else:
-            filters_string = ", ".join([self.available_filters[f] for f in cur])
+            filters_string = ", ".join([self.available_filters[f] for f in active])
             specio_warning(f"Check colorimeter has stacked filters: {filters_string}.")
 
     def _raw_measure(self) -> RawColorimeterMeasurement:

@@ -1,0 +1,123 @@
+"""The CR colorimeter reads its configured ND filters, whether the device
+has some or none, and whether their rows arrive with the header or after."""
+
+from __future__ import annotations
+
+import pytest
+
+from specio._device_implementations.colorimetry_research import CRColorimeter
+from specio.common import SpecioRuntimeWarning
+
+
+class _Port:
+    """A serial port that hands out queued follow-on lines.
+
+    `waiting` is what `in_waiting` reports when a reply is parsed: zero
+    stands for rows that have not arrived yet at that instant.
+    """
+
+    def __init__(self, lines: list[bytes], waiting: int) -> None:
+        self.lines = list(lines)
+        self.waiting = waiting
+
+    @property
+    def in_waiting(self) -> int:
+        return self.waiting
+
+    def readline(self) -> bytes:
+        return self.lines.pop(0) if self.lines else b""
+
+
+def _colorimeter(
+    replies: dict[str, bytes], port: _Port | None = None
+) -> tuple[CRColorimeter, list[str]]:
+    """A CRColorimeter whose commands answer from a script, with no serial
+    port opened, and the list of commands it sends.
+
+    The class is final, so the instance is built bare and its exchange
+    replaced, rather than subclassed.
+    """
+    device = object.__new__(CRColorimeter)
+    device._port = port or _Port([], 0)  # pyright: ignore[reportAttributeAccessIssue]
+    sent: list[str] = []
+
+    def write_cmd(command: str):
+        sent.append(command)
+        return device._parse_response(replies[command])
+
+    device._write_cmd = write_cmd
+    return device, sent
+
+
+class TestAvailableFilters:
+    def test_a_device_with_no_filters_reports_only_none(self) -> None:
+        d, _ = _colorimeter({"RC Filter": b"OK:0:RC Filter:0"})
+
+        assert dict(d.available_filters) == {0: "None"}
+
+    def test_filter_rows_that_arrive_after_the_header_are_read(self) -> None:
+        """A slow reply's rows are not yet waiting when the header parses;
+        reading the count as "no filters" cached an empty wheel."""
+        port = _Port(
+            [b"1,ND-120-1.3,Radiance\r\n", b"2,ND-120-2.0,Radiance\r\n"], waiting=0
+        )
+        d, _ = _colorimeter({"RC Filter": b"OK:0:RC Filter:2"}, port)
+
+        assert dict(d.available_filters) == {
+            0: "None",
+            1: "ND-120-1.3",
+            2: "ND-120-2.0",
+        }
+
+    def test_rows_already_waiting_are_read(self) -> None:
+        port = _Port([b"1,ND-120-1.3,Radiance\r\n"], waiting=1)
+        d, _ = _colorimeter({"RC Filter": b"OK:0:RC Filter:1"}, port)
+
+        assert dict(d.available_filters) == {0: "None", 1: "ND-120-1.3"}
+
+
+class TestCurrentFilters:
+    def test_a_selected_filter_resolves_by_its_name(self) -> None:
+        """RS Filter names a selected filter without the type field that
+        RC Filter lists, as a CR-120 reports them."""
+        port = _Port([b"1,ND-120-1.3,Radiance\r\n", b"2,ND-120-2.0,Radiance\r\n"], 1)
+        d, _ = _colorimeter(
+            {
+                "RC Filter": b"OK:0:RC Filter:2",
+                "RS Filter": b"OK:0:RS Filter:ND-120-2.0,None,None",
+            },
+            port,
+        )
+
+        assert d.current_filters == (2, 0, 0)
+
+
+class TestFilterWarning:
+    def _with_filters(self, selected: bytes) -> CRColorimeter:
+        port = _Port(
+            [b"1,ND-120-1.3,Radiance\r\n", b"2,ND-120-2.0,Radiance\r\n"], waiting=1
+        )
+        device, _ = _colorimeter(
+            {
+                "RC Filter": b"OK:0:RC Filter:2",
+                "RS Filter": b"OK:0:RS Filter:" + selected,
+            },
+            port,
+        )
+        return device
+
+    def test_no_selected_filter_is_not_called_stacked(self) -> None:
+        """Every slot reads back, selected or not, so an empty selection was
+        reported as three stacked filters."""
+        d = self._with_filters(b"None,None,None")
+
+        with pytest.warns(SpecioRuntimeWarning, match="no active filters"):
+            d._warn_filter_selection()
+
+    def test_two_selected_filters_are_stacked(self) -> None:
+        d = self._with_filters(b"ND-120-1.3,ND-120-2.0,None")
+
+        with pytest.warns(
+            SpecioRuntimeWarning, match="stacked filters: ND-120-1.3, ND-120-2.0"
+        ):
+            d._warn_filter_selection()
