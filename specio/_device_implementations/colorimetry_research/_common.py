@@ -447,9 +447,6 @@ class CRDeviceBase(ABC):
         CommandError
             If the exposure multiplier query command fails.
         """
-        if self.__average_samples is not None:
-            return self.__average_samples
-
         response = self._write_cmd("RS ExposureX")
         raw = response.arguments[0] if response.arguments else ""
         try:
@@ -479,6 +476,22 @@ class CRDeviceBase(ABC):
         num = num if num < _MAX_AVERAGE_SAMPLES else _MAX_AVERAGE_SAMPLES
         self._write_cmd(f"SM ExposureX {num:d}")
         self.__average_samples = num
+
+    def _samples_for_timeout(self) -> int:
+        """The multiplier a measurement sizes its read window by.
+
+        The last value read or written here, so a measurement carries no
+        extra serial exchange before it starts. With none known, the
+        device is asked once. A link that cannot answer gets the widest
+        window, because sizing the window must not fail the measurement
+        it sizes.
+        """
+        if self.__average_samples is not None:
+            return self.__average_samples
+        try:
+            return self.average_samples
+        except (CommandError, IncompleteResponse, UnexpectedResponse):
+            return _MAX_AVERAGE_SAMPLES
 
     @property
     def instrument_type(self) -> InstrumentType:
@@ -547,18 +560,14 @@ class CRDeviceBase(ABC):
             )
 
         self.__last_command = command
-        deadline = time.time() + (self._port.timeout or _DEFAULT_SERIAL_TIMEOUT)
 
         self.__clear_buffer()
         self._port.write(enc_command)
         self.__last_cmd_time = time.time()
 
-        # `readline` returns on the port timeout, which is a poll interval
-        # and not a verdict: an integrating instrument is silent and then
-        # answers. Keep polling to the deadline before calling it absent.
+        # The measure paths size the port timeout to the longest
+        # integration the settings allow, so one read waits for it.
         raw = self._port.readline()
-        while not raw.strip() and time.time() < deadline:
-            raw = self._port.readline()
 
         try:
             response = self._parse_response(raw)
@@ -586,12 +595,13 @@ class CRDeviceBase(ABC):
             return response
 
     def resync(self) -> None:
-        """Drop anything in flight and confirm the device answers again.
+        """Drop anything in flight, so the next reply answers the next command.
 
         A timed-out command leaves its answer in the port, one command
-        behind forever. Discarding both buffers and reading the device
-        identity puts the conversation back on the turn the caller
-        thinks it is on.
+        behind forever. Discarding both buffers and draining what is still
+        arriving puts the conversation back on the turn the caller thinks
+        it is on. The exposure multiplier is forgotten with it, since the
+        device may not hold what was last seen.
         """
         log = logging.getLogger("specio.CR")
         log.debug("resynchronizing the CR link")

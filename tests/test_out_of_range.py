@@ -69,7 +69,7 @@ class TestAnErrorWithNoArguments:
         class Bare(_common.CRDeviceBase):
             """The base's command path, with the abstract read stubbed."""
 
-            def _raw_measure(self):  # type: ignore[override]
+            def _raw_measure(self):
                 raise NotImplementedError
 
             def __init__(self) -> None:

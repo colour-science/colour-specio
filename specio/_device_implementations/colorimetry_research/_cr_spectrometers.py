@@ -14,12 +14,8 @@ from colour import SpectralDistribution, SpectralShape
 from specio.common import RawSPDMeasurement, SpecRadiometer
 
 from ._common import (
-    _MAX_AVERAGE_SAMPLES,
-    CommandError,
     CRDeviceBase,
-    IncompleteResponse,
     InstrumentType,
-    UnexpectedResponse,
 )
 
 
@@ -145,10 +141,7 @@ class CRSpectrometer(CRDeviceBase, SpecRadiometer):
             t = 14
         else:
             t = 7
-        try:
-            t *= self.average_samples
-        except (CommandError, IncompleteResponse, UnexpectedResponse):
-            t *= _MAX_AVERAGE_SAMPLES
+        t *= self._samples_for_timeout()
         self._port.apply_settings({"timeout": t})
 
     def _raw_measure(self) -> RawSPDMeasurement:

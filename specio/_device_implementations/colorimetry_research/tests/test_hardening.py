@@ -46,12 +46,12 @@ class _Device(CRDeviceBase):
         self._CRDeviceBase__average_samples = None
 
     # The two hooks the base class needs, stubbed.
-    def _write_cmd(self, command: str):  # type: ignore[override]
+    def _write_cmd(self, command: str):
         self.sent.append(command)
         raw = self._replies.pop(0)
         return self._parse_response(raw)
 
-    def resync(self) -> None:  # type: ignore[override]
+    def resync(self) -> None:
         self.resyncs += 1
         self._CRDeviceBase__average_samples = None
 
@@ -102,45 +102,58 @@ class TestDesynchronisedLink:
             _ = d.average_samples
 
 
-class TestExposureMultiplierIsCached:
-    def test_the_device_is_asked_once(self) -> None:
-        """Sizing a read window should not cost a round trip per read.
-
-        The measure path reads this to size its own timeout, so querying
-        the device here put a serial exchange -- and a failure point --
-        inside every measurement.
-        """
-        d = _Device([_ok(b"16")])
+class TestExposureMultiplier:
+    def test_each_read_asks_the_device(self) -> None:
+        """The setting can change on the instrument, so a read reports
+        what the device holds now rather than what this driver last saw."""
+        d = _Device([_ok(b"16"), _ok(b"4")])
 
         assert d.average_samples == 16
+        assert d.average_samples == 4
+        assert d.sent == ["RS ExposureX", "RS ExposureX"]
+
+    def test_the_read_window_is_sized_without_a_round_trip(self) -> None:
+        """The measure path sizes its timeout from the last value read or
+        written, so a measurement does not carry an extra serial exchange,
+        and a failure point, before it starts."""
+        d = _Device([_ok(b"16"), _ok(b"")])
+
         assert d.average_samples == 16
+        assert d._samples_for_timeout() == 16
+        d.average_samples = 8
+        assert d._samples_for_timeout() == 8
+        assert d.sent == ["RS ExposureX", "SM ExposureX 8"]
+
+    def test_an_unknown_multiplier_is_read_once_for_the_window(self) -> None:
+        d = _Device([_ok(b"3")])
+
+        assert d._samples_for_timeout() == 3
+        assert d._samples_for_timeout() == 3
         assert d.sent == ["RS ExposureX"]
 
-    def test_setting_updates_the_cache_without_re_reading(self) -> None:
-        d = _Device([_ok(b"1"), _ok(b"")])
+    def test_a_link_that_cannot_say_gets_the_widest_window(self) -> None:
+        """Sizing the window must not fail the measurement it sizes."""
+        d = _Device([b"OK:0:No errors:No errors"])
 
-        assert d.average_samples == 1
-        d.average_samples = 8
-
-        assert d.average_samples == 8
-        assert d.sent == ["RS ExposureX", "SM ExposureX 8"]
+        assert d._samples_for_timeout() == _MAX_AVERAGE_SAMPLES
 
     def test_the_setter_clamps_to_the_command_set(self) -> None:
         d = _Device([_ok(b""), _ok(b"")])
 
         d.average_samples = 9999
-        assert d.average_samples == _MAX_AVERAGE_SAMPLES
+        assert d._samples_for_timeout() == _MAX_AVERAGE_SAMPLES
+        assert d.sent[-1] == f"SM ExposureX {_MAX_AVERAGE_SAMPLES}"
 
         d.average_samples = 0
-        assert d.average_samples == 1
+        assert d._samples_for_timeout() == 1
+        assert d.sent[-1] == "SM ExposureX 1"
 
-    def test_resync_drops_the_cache(self) -> None:
+    def test_resync_forgets_the_multiplier(self) -> None:
         """After a resynchronisation the device may not agree with what
-        was cached, so the next read asks again."""
-        d = _Device([_ok(b"4"), _ok(b"4")])
+        was last seen, so the next window is sized from a fresh read."""
+        d = _Device([_ok(b"4"), _ok(b"6")])
 
-        assert d.average_samples == 4
+        assert d._samples_for_timeout() == 4
         d.resync()
-        assert d.average_samples == 4
-
+        assert d._samples_for_timeout() == 6
         assert d.sent == ["RS ExposureX", "RS ExposureX"]
