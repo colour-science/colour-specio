@@ -1,5 +1,5 @@
-"""The CR colorimeter reads its settings without changing them, and reads
-its filter wheel whether the device has filters or none."""
+"""The CR colorimeter reads its configured ND filters, whether the device
+has some or none, and whether their rows arrive with the header or after."""
 
 from __future__ import annotations
 
@@ -41,30 +41,12 @@ def _colorimeter(
     device._port = port or _Port([], 0)  # pyright: ignore[reportAttributeAccessIssue]
     sent: list[str] = []
 
-    def write_cmd(command: str):  # noqa: ANN202
+    def write_cmd(command: str):
         sent.append(command)
         return device._parse_response(replies[command])
 
     device._write_cmd = write_cmd
     return device, sent
-
-
-class TestMeasurementSpeed:
-    def test_reading_the_speed_changes_nothing(self) -> None:
-        """Reading the property used to switch the device to auto exposure."""
-        d, sent = _colorimeter({"RS Speed": b"OK:0:RS Speed:Normal"})
-
-        assert d.measurement_speed is CRColorimeter.MeasurementSpeed.NORMAL
-        assert sent == ["RS Speed"]
-
-    def test_setting_the_speed_selects_auto_exposure(self) -> None:
-        """The speed applies only in auto exposure mode."""
-        d, sent = _colorimeter(
-            {"SM ExposureMode 0": b"OK:0:", "SM Speed 2": b"OK:0:"}
-        )
-
-        d.measurement_speed = CRColorimeter.MeasurementSpeed.FAST
-        assert sent == ["SM ExposureMode 0", "SM Speed 2"]
 
 
 class TestAvailableFilters:
@@ -76,10 +58,16 @@ class TestAvailableFilters:
     def test_filter_rows_that_arrive_after_the_header_are_read(self) -> None:
         """A slow reply's rows are not yet waiting when the header parses;
         reading the count as "no filters" cached an empty wheel."""
-        port = _Port([b"1,ND-120-1.3,Radiance\r\n", b"2,ND-120-2.0,Radiance\r\n"], waiting=0)
+        port = _Port(
+            [b"1,ND-120-1.3,Radiance\r\n", b"2,ND-120-2.0,Radiance\r\n"], waiting=0
+        )
         d, _ = _colorimeter({"RC Filter": b"OK:0:RC Filter:2"}, port)
 
-        assert dict(d.available_filters) == {0: "None", 1: "ND-120-1.3", 2: "ND-120-2.0"}
+        assert dict(d.available_filters) == {
+            0: "None",
+            1: "ND-120-1.3",
+            2: "ND-120-2.0",
+        }
 
     def test_rows_already_waiting_are_read(self) -> None:
         port = _Port([b"1,ND-120-1.3,Radiance\r\n"], waiting=1)
@@ -106,9 +94,14 @@ class TestCurrentFilters:
 
 class TestFilterWarning:
     def _with_filters(self, selected: bytes) -> CRColorimeter:
-        port = _Port([b"1,ND-120-1.3,Radiance\r\n", b"2,ND-120-2.0,Radiance\r\n"], waiting=1)
+        port = _Port(
+            [b"1,ND-120-1.3,Radiance\r\n", b"2,ND-120-2.0,Radiance\r\n"], waiting=1
+        )
         device, _ = _colorimeter(
-            {"RC Filter": b"OK:0:RC Filter:2", "RS Filter": b"OK:0:RS Filter:" + selected},
+            {
+                "RC Filter": b"OK:0:RC Filter:2",
+                "RS Filter": b"OK:0:RS Filter:" + selected,
+            },
             port,
         )
         return device
@@ -124,5 +117,7 @@ class TestFilterWarning:
     def test_two_selected_filters_are_stacked(self) -> None:
         d = self._with_filters(b"ND-120-1.3,ND-120-2.0,None")
 
-        with pytest.warns(SpecioRuntimeWarning, match="stacked filters: ND-120-1.3, ND-120-2.0"):
+        with pytest.warns(
+            SpecioRuntimeWarning, match="stacked filters: ND-120-1.3, ND-120-2.0"
+        ):
             d._warn_filter_selection()

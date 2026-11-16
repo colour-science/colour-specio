@@ -5,11 +5,10 @@ Colorimetry Research colorimeter implementation.
 from __future__ import annotations
 
 import re
-from typing import Self, final
+from typing import final
 
 import bidict
 import numpy as np
-from aenum import MultiValueEnum
 
 from specio.common.colorimeters import Colorimeter, RawColorimeterMeasurement
 from specio.common.utility import specio_warning
@@ -34,16 +33,6 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         A error was encountered in parsing the result of the serial command to
         the hardware device.
     """
-
-    class MeasurementSpeed(MultiValueEnum):
-        """
-        Controls the measurement speed when the CR Exposure Mode is set to "auto"
-        """
-
-        SLOW: Self = 0, "0", "slow"  # type: ignore
-        NORMAL: Self = 1, "1", "normal"  # type: ignore
-        FAST: Self = 2, "2", "fast"  # type: ignore
-        FAST_2X: Self = 3, "3", "2x fast"  # type: ignore
 
     @classmethod
     def discover(
@@ -90,38 +79,6 @@ class CRColorimeter(CRDeviceBase, Colorimeter):
         """
         super().__init__(port)
         self._warn_filter_selection()
-
-    @property
-    def measurement_speed(self) -> MeasurementSpeed:
-        """The measurement speed the instrument uses in auto exposure mode.
-
-        Reading it queries the instrument and changes nothing. Setting it also
-        selects auto exposure mode, because the speed applies only there.
-
-        Returns
-        -------
-        MeasurementSpeed
-        """
-        response = self._write_cmd("RS Speed")
-        return CRColorimeter.MeasurementSpeed(response.arguments[0].lower())
-
-    @measurement_speed.setter
-    def measurement_speed(self, speed: MeasurementSpeed) -> None:
-        """
-        Set the automatic measurement speed of the hardware.
-
-        Parameters
-        ----------
-        speed : MeasurementSpeed
-            The desired measurement speed setting.
-
-        Raises
-        ------
-        CommandError
-            If the speed setting command fails.
-        """
-        self._write_cmd("SM ExposureMode 0")
-        self._write_cmd(f"SM Speed {speed.values[0]}")
 
     @property
     def available_filters(self) -> bidict.bidict[int, str]:
