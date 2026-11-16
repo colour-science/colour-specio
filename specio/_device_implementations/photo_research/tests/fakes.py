@@ -3,7 +3,8 @@ A byte-stream fake of a Photo Research PR-655 serial port.
 
 The fake subclasses pyserial's ``SerialBase`` and implements only the
 byte-level primitives, so pyserial's own ``read_until`` and ``readline`` run
-against it. Replies follow the formats in the PR-655/670 User Manual: the
+against it. A virtual clock times the replies, so a test can script a late,
+cut or trailing reply without sleeping. Replies follow the formats in the PR-655/670 User Manual: the
 ``PHOTO`` handshake (p.129), command framing (p.132-133) and the data codes
 (p.141-148).
 """
@@ -12,6 +13,8 @@ against it. Replies follow the formats in the PR-655/670 User Manual: the
 
 from __future__ import annotations
 
+import heapq
+import itertools
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -25,6 +28,8 @@ if TYPE_CHECKING:
 __all__ = [
     "PR655_SHAPE",
     "FakePRPort",
+    "Reply",
+    "ScriptedReply",
     "d5_reply",
     "default_replies",
 ]
@@ -38,6 +43,28 @@ _HANDSHAKE = b"PHOTO"
 _QUIT = b"Q"
 _ILLEGAL_COMMAND = b"-1000\r\n"
 _SETUP_OK = b"00000\r\n"
+
+
+class Reply:
+    """
+    A reply delivered in timed parts.
+
+    Each part arrives at its offset, in seconds on the fake's virtual clock,
+    after the fake receives the command. Parts model a reply that arrives
+    late, one cut by a pause, or stale lines that trail a complete reply.
+
+    Parameters
+    ----------
+    *parts : tuple[float, bytes]
+        ``(offset, data)`` pairs.
+    """
+
+    def __init__(self, *parts: tuple[float, bytes]) -> None:
+        self.parts = parts
+
+
+ScriptedReply = bytes | Reply
+"""A reply that arrives at once, as bytes, or in timed parts."""
 
 
 def d5_reply(
@@ -72,13 +99,13 @@ def d5_reply(
     return _CRLF.join(lines) + _CRLF
 
 
-def default_replies() -> dict[str, bytes | list[bytes]]:
+def default_replies() -> dict[str, ScriptedReply | list[ScriptedReply]]:
     """
     Return manual-format replies for a PR-655 in adaptive exposure mode.
 
     Returns
     -------
-    dict[str, bytes | list[bytes]]
+    dict[str, ScriptedReply | list[ScriptedReply]]
         Replies keyed by command, without the CR terminator.
     """
     start, end, step = PR655_SHAPE
@@ -108,9 +135,15 @@ class FakePRPort(SerialBase):
     ``-1000`` (illegal command), except setup (``S``) commands, which
     succeed.
 
+    Received bytes wait in a schedule until the virtual clock reaches their
+    arrival time. A read that finds nothing advances the clock to the next
+    arrival if it falls within the port timeout, and otherwise by the whole
+    timeout, as a real port blocks. With no timeout and nothing scheduled, a
+    read returns empty so that a test cannot hang.
+
     Parameters
     ----------
-    replies : Mapping[str, bytes | list[bytes]] | None, optional
+    replies : Mapping[str, ScriptedReply | list[ScriptedReply]] | None, optional
         Replies keyed by command. A list is consumed one reply per call.
         Entries override :func:`default_replies`.
     handshake : bytes, optional
@@ -119,11 +152,11 @@ class FakePRPort(SerialBase):
 
     def __init__(
         self,
-        replies: Mapping[str, bytes | list[bytes]] | None = None,
+        replies: Mapping[str, ScriptedReply | list[ScriptedReply]] | None = None,
         handshake: bytes = b"REMOTE MODE\r\n",
     ) -> None:
         super().__init__()
-        self.replies: dict[str, bytes | list[bytes]] = default_replies()
+        self.replies: dict[str, ScriptedReply | list[ScriptedReply]] = default_replies()
         self.replies.update(replies or {})
         self.handshake = handshake
         self.written = bytearray()
@@ -132,12 +165,74 @@ class FakePRPort(SerialBase):
         self.close_count = 0
         self._pending = bytearray()
         self._rx = bytearray()
+        self._now = 0.0
+        # Heap of (arrival time, sequence, data); the sequence keeps parts
+        # that share an arrival time in the order they were scheduled.
+        self._schedule: list[tuple[float, int, bytes]] = []
+        self._sequence = itertools.count()
         self.is_open = True
 
     def _reconfigure_port(self, *args: object, **kwargs: object) -> None:
         """Accept timeout changes; a fake has no hardware to reconfigure."""
 
-    def _reply_for(self, command: str) -> bytes:
+    def clock(self) -> float:
+        """
+        Return the virtual time in seconds since the fake was created.
+
+        Returns
+        -------
+        float
+            The virtual clock reading.
+        """
+        return self._now
+
+    def emit(self, data: bytes, after: float = 0.0) -> None:
+        """
+        Schedule bytes that arrive unasked, ``after`` seconds from now.
+
+        Parameters
+        ----------
+        data : bytes
+            The bytes to deliver.
+        after : float, optional
+            Delay in virtual seconds.
+        """
+        entry = (self._now + after, next(self._sequence), data)
+        heapq.heappush(self._schedule, entry)
+
+    def _arrive(self) -> None:
+        """Move every scheduled part whose time has come into the input."""
+        while self._schedule and self._schedule[0][0] <= self._now:
+            self._rx += heapq.heappop(self._schedule)[2]
+
+    def _wait_for_input(self) -> None:
+        """Advance the clock as a blocking read with the port timeout would."""
+        if self._rx or self.timeout == 0:
+            return
+        next_arrival = self._schedule[0][0] if self._schedule else None
+        if next_arrival is not None and (
+            self.timeout is None or next_arrival <= self._now + self.timeout
+        ):
+            self._now = next_arrival
+        elif self.timeout is not None:
+            self._now += self.timeout
+        self._arrive()
+
+    def _queue_reply(self, reply: ScriptedReply) -> None:
+        """
+        Schedule a scripted reply from the current virtual time.
+
+        Parameters
+        ----------
+        reply : ScriptedReply
+            The reply to deliver.
+        """
+        parts = reply.parts if isinstance(reply, Reply) else ((0.0, reply),)
+        for offset, data in parts:
+            self.emit(data, after=offset)
+        self._arrive()
+
+    def _reply_for(self, command: str) -> ScriptedReply:
         """
         Look up the scripted reply for one command.
 
@@ -148,8 +243,8 @@ class FakePRPort(SerialBase):
 
         Returns
         -------
-        bytes
-            The reply bytes.
+        ScriptedReply
+            The reply.
         """
         reply = self.replies.get(command)
         if isinstance(reply, list):
@@ -167,7 +262,7 @@ class FakePRPort(SerialBase):
             if pending == _HANDSHAKE:
                 self.commands.append(pending.decode())
                 self.remote = True
-                self._rx += self.handshake
+                self._queue_reply(self.handshake)
                 self._pending.clear()
             elif not _HANDSHAKE.startswith(pending):
                 self._pending.clear()
@@ -178,7 +273,7 @@ class FakePRPort(SerialBase):
         elif pending.endswith(_CR):
             command = pending[: -len(_CR)].decode()
             self.commands.append(command)
-            self._rx += self._reply_for(command)
+            self._queue_reply(self._reply_for(command))
             self._pending.clear()
 
     def write(self, data: bytes) -> int:  # type: ignore[override]
@@ -203,7 +298,10 @@ class FakePRPort(SerialBase):
 
     def read(self, size: int = 1) -> bytes:
         """
-        Return up to ``size`` queued reply bytes, or ``b""`` when none remain.
+        Return up to ``size`` arrived bytes, or ``b""`` after a timeout.
+
+        A read returns as soon as any bytes have arrived, without waiting
+        to fill ``size``.
 
         Parameters
         ----------
@@ -215,6 +313,8 @@ class FakePRPort(SerialBase):
         bytes
             The bytes read.
         """
+        self._arrive()
+        self._wait_for_input()
         chunk = bytes(self._rx[:size])
         del self._rx[:size]
         return chunk
@@ -222,17 +322,19 @@ class FakePRPort(SerialBase):
     @property
     def in_waiting(self) -> int:
         """
-        Return the number of queued reply bytes.
+        Return the number of bytes that have arrived and not been read.
 
         Returns
         -------
         int
             Bytes available to read.
         """
+        self._arrive()
         return len(self._rx)
 
     def reset_input_buffer(self) -> None:
-        """Discard queued reply bytes."""
+        """Discard arrived bytes; bytes still in transit arrive later."""
+        self._arrive()
         self._rx.clear()
 
     def flush(self) -> None:

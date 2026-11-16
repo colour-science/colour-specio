@@ -15,6 +15,10 @@ from specio._device_implementations.photo_research.tests.fakes import FakePRPort
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
+    from specio._device_implementations.photo_research.tests.fakes import (
+        ScriptedReply,
+    )
+
 __all__ = [
     "FAKE_PORT_NAME",
     "no_serial_delays",
@@ -45,10 +49,19 @@ def open_pr(
     """
 
     def factory(
-        replies: Mapping[str, bytes | list[bytes]] | None = None,
+        replies: Mapping[str, ScriptedReply | list[ScriptedReply]] | None = None,
     ) -> tuple[PRSpectrometer, FakePRPort]:
         port = FakePRPort(replies)
-        monkeypatch.setattr(serial, "Serial", lambda *_args, **_kwargs: port)
+
+        def open_port(
+            *_args: object, timeout: float | None = None, **_kwargs: object
+        ) -> FakePRPort:
+            # Take the driver's timeout, so late replies time out as on a
+            # real port.
+            port.timeout = timeout
+            return port
+
+        monkeypatch.setattr(serial, "Serial", open_port)
         return PRSpectrometer(FAKE_PORT_NAME), port
 
     return factory
