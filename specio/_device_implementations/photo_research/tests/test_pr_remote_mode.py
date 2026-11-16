@@ -38,18 +38,38 @@ class TestEnterRemoteMode:
         assert bytes(port.written) == b"PHOTO"
         assert port.remote
 
-    @pytest.mark.parametrize("handshake", [b"", b"-1000\r\n"])
+    @pytest.mark.parametrize(
+        ("handshake", "replies"),
+        [(b"", {"D111": b""}), (b"-1000\r\n", None)],
+        ids=["silent", "wrong-reply"],
+    )
     def test_failed_handshake_closes_port(
-        self, monkeypatch: pytest.MonkeyPatch, handshake: bytes
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        handshake: bytes,
+        replies: dict[str, bytes] | None,
     ) -> None:
         """A device that does not answer REMOTE MODE is closed and reported."""
-        port = FakePRPort(handshake=handshake)
+        port = FakePRPort(replies, handshake=handshake)
         monkeypatch.setattr(serial, "Serial", lambda *_args, **_kwargs: port)
 
         with pytest.raises(DeviceError, match="handshake"):
             PRSpectrometer(FAKE_PORT_NAME)
 
         assert not port.is_open
+
+    def test_a_device_already_in_remote_mode_is_accepted(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Silent to PHOTO but answering commands: a bench PR-655 left in
+        remote mode by a caller that never sent Q."""
+        port = FakePRPort(handshake=b"")
+        monkeypatch.setattr(serial, "Serial", lambda *_args, **_kwargs: port)
+
+        pr = PRSpectrometer(FAKE_PORT_NAME)
+
+        assert port.commands[:3] == ["PHOTO", "", "D111"]
+        assert pr.model == "PR-655"
 
 
 class TestExitRemoteMode:

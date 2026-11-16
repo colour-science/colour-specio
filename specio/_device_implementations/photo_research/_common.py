@@ -369,10 +369,17 @@ class PRDeviceBase(ABC):
         Sends the five characters ``PHOTO`` one at a time with no
         terminator. The device responds with ``REMOTE MODE`` on success.
 
+        A device already in remote mode, left there by a caller that did
+        not close it, says nothing to ``PHOTO``: it takes the characters
+        as the start of a command line. On silence the line is ended with
+        a bare terminator and the device asked for its model; an answer
+        means it is already in remote mode.
+
         Raises
         ------
         DeviceError
-            If the device does not respond to the handshake.
+            If the device does not respond to the handshake, nor to the
+            model request that follows a silent one.
         """
         log = logging.getLogger("specio.PR")
         log.debug("Entering remote mode")
@@ -382,6 +389,20 @@ class PRDeviceBase(ABC):
         with self._port_timeout(_REMOTE_MODE_TIMEOUT):
             reply = self._port.read_until(_REMOTE_MODE_REPLY)
 
+        if not reply:
+            # Already in remote mode? End the partial line, discard the
+            # device's answer to it, and ask for something it can answer.
+            self._write_serial(_COMMAND_TERMINATOR)
+            self._read_response()
+            try:
+                self._write_cmd("D111")
+            except DeviceError as e:
+                raise DeviceError(
+                    f"Unexpected handshake response: {reply!r}, and no answer "
+                    "to a model request"
+                ) from e
+            log.debug("Device was already in remote mode")
+            return
         if _REMOTE_MODE_REPLY not in reply:
             raise DeviceError(f"Unexpected handshake response: {reply!r}")
 
