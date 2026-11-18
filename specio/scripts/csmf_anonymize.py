@@ -25,6 +25,10 @@ def main(*args: str) -> Path:
     are opaque caller data and may hold identifying provenance. The copy
     is named by :attr:`CSMF_Data.shortname`, a hash of its rows.
 
+    Each row keeps its ``status`` and ``settings``. They record instrument
+    conditions such as a reply code or a measurement speed and carry no
+    personal data. Device ids stay in the rows as before.
+
     Parameters
     ----------
     *args : str

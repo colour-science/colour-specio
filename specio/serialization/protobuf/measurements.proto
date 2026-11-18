@@ -3,6 +3,15 @@ package specio.proto;
 
 import "specio/serialization/protobuf/common.proto";
 
+// The device's verdict on one reading, as it reported it.
+message Reading_Status {
+  // The device's reply code, for example "OK04".
+  string code = 1;
+  string message = 2;
+  // Names of the conditions the reply sets.
+  repeated string flags = 3;
+}
+
 message Colorimeter_Measurement {
   XYZ_value XYZ = 1;
   xy_value xy = 2;
@@ -13,6 +22,11 @@ message Colorimeter_Measurement {
 
   double exposure = 16;
   string colorimeter_id = 17;
+
+  // Absent when the driver reported no status.
+  Reading_Status status = 18;
+  // Instrument settings the reading was taken under. Keys are lower_snake_case.
+  map<string, string> settings = 19;
 }
 
 message SPD_Measurement {
@@ -27,6 +41,11 @@ message SPD_Measurement {
   string spectrometer_id = 8;
 
   Timestamp time = 9;
+
+  // Absent when the driver reported no status.
+  Reading_Status status = 11;
+  // Instrument settings the reading was taken under. Keys are lower_snake_case.
+  map<string, string> settings = 12;
 
   reserved 16;
 }
